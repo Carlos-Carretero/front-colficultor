@@ -146,3 +146,132 @@ body{
     object-fit: cover;
     border-radius: 9px;
 }
+
+
+/* MODAL */
+
+.modal{
+    position: fixed;
+    inset: 0;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: rgba(0,0,0,0.6);
+
+    opacity: 0;
+    pointer-events: none;
+    transition: 0.3s;
+
+    z-index: 999;
+}
+
+.modal.active{
+    opacity: 1;
+    pointer-events: all;
+}
+
+.modal_content{
+    width: 360px;
+
+    background: #FFFFFF;
+    padding: 30px;
+
+    border-radius: 15px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.close_modal{
+    display: flex;
+    justify-content: flex-end;
+}
+
+.close_modal button{
+    border: none;
+    background: none;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.auth_container{
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.formulario form{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.formulario input{
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+.formulario button{
+    background: #E2902D;
+    border: none;
+    padding: 10px;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.switch{
+    font-size: 14px;
+}
+
+.switch button{
+    background: none;
+    border: none;
+    color: #E2902D;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.hidden{
+    display: none;
+}
+
+.precio{
+    border: 2px solid #4B2E2B;
+    border-radius: 8px;
+    padding: 2px 4px;
+
+    font-weight: 600;
+    color: #4B2E2B;
+
+
+    transition: 0.3s;
+    cursor: default;
+}
+
+.btn-comprar{
+
+    border: 2px solid #4B2E2B;
+    border-radius: 8px;
+
+    padding: 5px 7px;
+
+    color: #4B2E2B;
+
+    font-weight: 600;
+    cursor: pointer;
+
+    transition: all 0.3s ease;
+}
+
+.btn-comprar:hover{
+
+    background: #E2902D;
+    color: white;
+
+    border-color: #E2902D;
+}

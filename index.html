@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
     <link rel="stylesheet" href="./css/styles.css">
-    <link rel="stylesheet" href="./js/app.js">
+    <script src="./js/app.js" defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lobster&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Rubik+Glitch&display=swap"
@@ -29,7 +29,7 @@
                     </button>
                 </section>
                 <section class="login">
-                    <button>
+                    <button id="openLogin">
                         INICIAR SESION
                     </button>
                 </section>
@@ -68,12 +68,12 @@
                         </section>
                         <section class="compra">
                             <article>
-                                <span>
+                                <span class="precio">
                                     $50.000
                                 </span>
                             </article>
                             <article>
-                                <button>
+                                <button class="btn-comprar">
                                     COMPRAR
                                 </button>
                             </article>
@@ -91,12 +91,12 @@
                         </section>
                         <section class="compra">
                             <article>
-                                <span>
+                                <span class="precio">
                                     $50.000
                                 </span>
                             </article>
                             <article>
-                                <button>
+                                <button class="btn-comprar">
                                     COMPRAR
                                 </button>
                             </article>
@@ -114,12 +114,12 @@
                         </section>
                         <section class="compra">
                             <article>
-                                <span>
+                                <span class="precio">
                                     $50.000
                                 </span>
                             </article>
                             <article>
-                                <button>
+                                <button class="btn-comprar">
                                     COMPRAR
                                 </button>
                             </article>
@@ -137,12 +137,12 @@
                         </section>
                         <section class="compra">
                             <article>
-                                <span>
+                                <span class="precio">
                                     $50.000
                                 </span>
                             </article>
                             <article>
-                                <button>
+                                <button class="btn-comprar">
                                     COMPRAR
                                 </button>
                             </article>
@@ -160,12 +160,12 @@
                         </section>
                         <section class="compra">
                             <article>
-                                <span>
+                                <span class="precio">
                                     $50.000
                                 </span>
                             </article>
                             <article>
-                                <button>
+                                <button class="btn-comprar">
                                     COMPRAR
                                 </button>
                             </article>
@@ -183,12 +183,12 @@
                         </section>
                         <section class="compra">
                             <article>
-                                <span>
+                                <span class="precio">
                                     $50.000
                                 </span>
                             </article>
                             <article>
-                                <button>
+                                <button class="btn-comprar">
                                     COMPRAR
                                 </button>
                             </article>
@@ -206,12 +206,12 @@
                         </section>
                         <section class="compra">
                             <article>
-                                <span>
+                                <span class="precio">
                                     $50.000
                                 </span>
                             </article>
                             <article>
-                                <button>
+                                <button class="btn-comprar">
                                     COMPRAR
                                 </button>
                             </article>
@@ -229,12 +229,12 @@
                         </section>
                         <section class="compra">
                             <article>
-                                <span>
+                                <span class="precio">
                                     $50.000
                                 </span>
                             </article>
                             <article>
-                                <button>
+                                <button class="btn-comprar">
                                     COMPRAR
                                 </button>
                             </article>
@@ -252,6 +252,87 @@
     <footer>
 
     </footer>
+    <!-- MODAL AUTENTICACIÓN -->
+
+    <section class="modal" id="authModal">
+        <article class="modal_content">
+
+            <section class="close_modal">
+                <button id="closeModal">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </section>
+
+            <article class="auth_container" id="loginContainer">
+
+                <section class="titulo">
+                    <h2>Iniciar Sesión</h2>
+                </section>
+
+                <section class="formulario">
+
+                    <form id="loginForm">
+
+                        <input type="email" placeholder="Correo electrónico" required>
+
+                        <input type="password" placeholder="Contraseña" required>
+
+                        <button type="submit">
+                            Ingresar
+                        </button>
+
+                    </form>
+
+                </section>
+
+                <section class="switch">
+                    ¿No tienes cuenta?
+                    <button id="showRegister">
+                        Registrarse
+                    </button>
+                </section>
+
+            </article>
+
+
+            <!-- REGISTRO -->
+
+            <article class="auth_container hidden" id="registerContainer">
+
+                <section class="titulo">
+                    <h2>Crear Cuenta</h2>
+                </section>
+
+                <section class="formulario">
+
+                    <form id="registerForm">
+
+                        <input type="text" placeholder="Nombre" required>
+
+                        <input type="email" placeholder="Correo electrónico" required>
+
+                        <input type="password" placeholder="Contraseña" required>
+
+                        <button type="submit">
+                            Registrarse
+                        </button>
+
+                    </form>
+
+                </section>
+
+                <section class="switch">
+                    ¿Ya tienes cuenta?
+                    <button id="showLogin">
+                        Iniciar sesión
+                    </button>
+                </section>
+
+            </article>
+
+        </article>
+
+    </section>
 
 </body>
 </html>
