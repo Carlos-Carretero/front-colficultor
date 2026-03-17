@@ -273,9 +273,9 @@
 
                     <form id="loginForm">
 
-                        <input type="email" placeholder="Correo electrónico" required>
+                        <input type="email" id="loginEmail" placeholder="Correo electrónico" required>
 
-                        <input type="password" placeholder="Contraseña" required>
+                        <input type="password" id="loginPassword" placeholder="Contraseña" required>
 
                         <button type="submit">
                             Ingresar
@@ -307,11 +307,17 @@
 
                     <form id="registerForm">
 
-                        <input type="text" placeholder="Nombre" required>
+                        <input type="text" id="registerName" placeholder="Nombre" required>
 
-                        <input type="email" placeholder="Correo electrónico" required>
+                        <input type="email" id="registerEmail" placeholder="Correo electrónico" required>
 
-                        <input type="password" placeholder="Contraseña" required>
+                        <select id="registerRole" required>
+                            <option value="" disabled selected>Seleccione un rol</option>
+                            <option value="caficultor">Caficultor</option>
+                            <option value="comprador">Comprador</option>
+                        </select>
+
+                        <input type="password" id="registerPassword" placeholder="Contraseña" required>
 
                         <button type="submit">
                             Registrarse
