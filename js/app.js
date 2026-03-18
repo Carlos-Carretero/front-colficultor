@@ -1,0 +1,114 @@
+const modal = document.getElementById("authModal")
+const openBtn = document.getElementById("openLogin")
+const closeBtn = document.getElementById("closeModal")
+
+const showRegister = document.getElementById("showRegister")
+const showLogin = document.getElementById("showLogin")
+
+const registerContainer = document.getElementById("registerContainer")
+const loginContainer = document.getElementById("loginContainer")
+
+openBtn.onclick = ()=>{
+    modal.classList.add("active")
+}
+
+closeBtn.onclick = ()=>{
+    modal.classList.remove("active")
+}
+
+window.onclick = (e)=>{
+    if(e.target === modal){
+        modal.classList.remove("active")
+    }
+}
+
+showRegister.onclick = ()=>{
+    loginContainer.classList.add("hidden")
+    registerContainer.classList.remove("hidden")
+}
+
+showLogin.onclick = ()=>{
+    registerContainer.classList.add("hidden")
+    loginContainer.classList.remove("hidden")
+}
+
+// Configuración del API
+const API_URL = "http://localhost:8000/api/auth";
+
+// Formularios
+const loginForm = document.getElementById("loginForm");
+const registerForm = document.getElementById("registerForm");
+
+// Login Logic
+loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
+    const email = document.getElementById("loginEmail").value;
+    const password = document.getElementById("loginPassword").value;
+    
+    try {
+        const response = await fetch(`${API_URL}/login`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+                username: email,
+                password: password,
+            }),
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            localStorage.setItem("access_token", data.access_token);
+            alert("Inicio de sesión exitoso");
+            modal.classList.remove("active");
+            loginForm.reset();
+        } else {
+            const error = await response.json();
+            alert(`Error: ${error.detail || "Credenciales incorrectas"}`);
+        }
+    } catch (error) {
+        console.error("Error en login:", error);
+        alert("Ocurrió un error al intentar iniciar sesión. Verifica que el servidor esté corriendo.");
+    }
+});
+
+// Register Logic
+registerForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
+    const name = document.getElementById("registerName").value;
+    const email = document.getElementById("registerEmail").value;
+    const role = document.getElementById("registerRole").value;
+    const password = document.getElementById("registerPassword").value;
+
+    try {
+        const response = await fetch(`${API_URL}/register`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                email: email,
+                full_name: name,
+                role: role,
+                password: password,
+            }),
+        });
+
+        if (response.ok) {
+            alert("Registro exitoso. Ahora puedes iniciar sesión.");
+            registerForm.reset();
+            // Switch to login tab
+            registerContainer.classList.add("hidden");
+            loginContainer.classList.remove("hidden");
+        } else {
+            const error = await response.json();
+            alert(`Error en el registro: ${JSON.stringify(error.detail) || "Datos inválidos"}`);
+        }
+    } catch (error) {
+        console.error("Error en registro:", error);
+        alert("Ocurrió un error al intentar registrarse. Verifica que el servidor esté corriendo.");
+    }
+});
