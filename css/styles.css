@@ -1,0 +1,300 @@
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body{
+    font-family: 'Poppins', sans-serif;
+}
+.container_principal{
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    grid-template-rows: repeat(20, 1fr);
+    
+    height: 1700px;
+}
+.container_1{
+    display: flex;
+    align-items: top;
+    justify-content: right;
+    padding: 20px;
+    gap: 20px;
+
+    background-image: url(https://i.pinimg.com/1200x/df/f8/cc/dff8cc6869e11c9dd51884e81d5361df.jpg);
+    background-size: cover;
+    background-position: center;
+
+    grid-column: 1/-1;
+    grid-row: 1/5;
+
+    position: relative;
+    z-index: 5;
+}
+
+.container_1 > .login{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 10%;
+    height: 15%;
+    background-color: #E2902D;
+    border-radius: 15px;
+}
+
+.container_1 > .login > button{
+    background: none;
+    border: none;
+    color: #FFFFFF;
+    font-size: 12px;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    font-style: normal;
+}
+
+.star-btn{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 15%;
+
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.star-btn svg{
+    width: 26px;
+    height: 26px;
+    fill: none;
+    stroke: #ffffff;   /* color del trazo */
+    stroke-width: 2;   /* grosor del trazo */
+}
+
+.container_2{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 10px;
+
+    grid-column: 1/-1;
+    grid-row: 4/5;
+    position: relative;
+    z-index: 10;
+}
+.tag_1, .tag_2, .tag_3, .tag_4, .tag_5{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background-color: #E2902D;
+    padding: 10px;
+    border-radius: 15px;
+    width: 10%;
+
+    color: #FFFFFF;
+}
+.tag_1 > button, .tag_2 > button, .tag_3 > button, .tag_4 > button, .tag_5 > button{
+    background: none;
+    border: none;
+    color: #FFFFFF;
+    font-size: 16px;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+}
+
+.container_3{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background-color: #E3CACA;
+    grid-column: 1/-1;
+    grid-row: 5/-1;
+
+    position: relative;
+    z-index: 1;
+}
+
+.productos{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.productos > .producto_1, .productos > .producto_2, .productos > .producto_3, .productos > .producto_4, .productos > .producto_5, .productos > .producto_6, .productos > .producto_7, .productos > .producto_8{
+    width: 20%;
+    gap: 10px;
+    padding: 10px;
+    background-color: #FFFFFF;
+    border-radius: 15px;
+}
+
+.producto_1 > .compra, .producto_2 > .compra, .producto_3 > .compra, .producto_4 > .compra, .producto_5 > .compra, .producto_6 > .compra, .producto_7 > .compra, .producto_8 > .compra{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+}
+.producto_1 > .imagen > img, .producto_2 > .imagen > img, .producto_3 > .imagen > img, .producto_4 > .imagen > img, .producto_5 > .imagen > img, .producto_6 > .imagen > img, .producto_7 > .imagen > img, .producto_8 > .imagen > img{
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 9px;
+}
+
+
+/* MODAL */
+
+.modal{
+    position: fixed;
+    inset: 0;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: rgba(0,0,0,0.6);
+
+    opacity: 0;
+    pointer-events: none;
+    transition: 0.3s;
+
+    z-index: 999;
+}
+
+.modal.active{
+    opacity: 1;
+    pointer-events: all;
+}
+
+.modal_content{
+    width: 360px;
+
+    background: #FFFFFF;
+    padding: 30px;
+
+    border-radius: 15px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.close_modal{
+    display: flex;
+    justify-content: flex-end;
+}
+
+.close_modal button{
+    border: none;
+    background: none;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.auth_container{
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.formulario form{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.formulario input{
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+.formulario button{
+    background: #E2902D;
+    border: none;
+    padding: 10px;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.switch{
+    font-size: 14px;
+}
+
+.switch button{
+    background: none;
+    border: none;
+    color: #E2902D;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.hidden{
+    display: none;
+}
+
+.precio{
+    border: 2px solid #4B2E2B;
+    border-radius: 8px;
+    padding: 2px 4px;
+
+    font-weight: 600;
+    color: #4B2E2B;
+
+
+    transition: 0.3s;
+    cursor: default;
+}
+
+.btn-comprar{
+
+    border: 2px solid #4B2E2B;
+    border-radius: 8px;
+
+    padding: 5px 7px;
+
+    color: #4B2E2B;
+
+    font-weight: 600;
+    cursor: pointer;
+
+    transition: all 0.3s ease;
+}
+
+.btn-comprar:hover{
+
+    background: #E2902D;
+    color: white;
+
+    border-color: #E2902D;
+}
+
+.formulario input,
+.formulario select{
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    background-color: #FFFFFF;
+    color: #4B2E2B;
+    outline: none;
+    transition: 0.3s;
+}
+
+.formulario input:focus,
+.formulario select:focus{
+    border-color: #E2902D;
+    box-shadow: 0 0 0 2px rgba(226, 144, 45, 0.2);
+}
+
+.formulario select option{
+    color: #4B2E2B;
+}
