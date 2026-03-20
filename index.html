@@ -292,6 +292,12 @@
                     </button>
                 </section>
 
+                <section class="forgot_password hidden" id="forgotPasswordSection">
+                    <button id="showForgotPassword" type="button">
+                        ¿Olvidaste tu contraseña?
+                    </button>
+                </section>
+
             </article>
 
 
@@ -331,6 +337,36 @@
                     ¿Ya tienes cuenta?
                     <button id="showLogin">
                         Iniciar sesión
+                    </button>
+                </section>
+
+            </article>
+
+            <!-- RECUPERAR CONTRASEÑA -->
+
+            <article class="auth_container hidden" id="recoveryContainer">
+
+                <section class="titulo">
+                    <h2>Recuperar Contraseña</h2>
+                </section>
+
+                <section class="formulario">
+
+                    <form id="recoveryForm">
+
+                        <input type="email" id="recoveryEmail" placeholder="Ingresa tu correo electrónico" required>
+
+                        <button type="submit">
+                            Enviar Enlace de Recuperación
+                        </button>
+
+                    </form>
+
+                </section>
+
+                <section class="switch">
+                    <button id="backToLogin" type="button">
+                        Volver al login
                     </button>
                 </section>
 
