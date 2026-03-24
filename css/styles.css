@@ -169,7 +169,8 @@ body{
     max-width: 1400px;
 }
 
-.productos > .producto_1, .productos > .producto_2, .productos > .producto_3, .productos > .producto_4, .productos > .producto_5, .productos > .producto_6, .productos > .producto_7, .productos > .producto_8{
+.productos > .producto_1, .productos > .producto_2, .productos > .producto_3, .productos > .producto_4, .productos > .producto_5, .productos > .producto_6, .productos > .producto_7, .productos > .producto_8,
+.productos > .producto_9, .productos > .producto_10, .productos > .producto_11, .productos > .producto_12, .productos > .producto_13, .productos > .producto_14, .productos > .producto_15, .productos > .producto_16{
     width: 20%;
     min-width: 200px;
     gap: 12px;
@@ -189,7 +190,15 @@ body{
 .productos > .producto_5:hover, 
 .productos > .producto_6:hover, 
 .productos > .producto_7:hover, 
-.productos > .producto_8:hover{
+.productos > .producto_8:hover,
+.productos > .producto_9:hover,
+.productos > .producto_10:hover,
+.productos > .producto_11:hover,
+.productos > .producto_12:hover,
+.productos > .producto_13:hover,
+.productos > .producto_14:hover,
+.productos > .producto_15:hover,
+.productos > .producto_16:hover{
     transform: translateY(-10px);
     box-shadow: 0 16px 40px rgba(226, 144, 45, 0.2);
 }
@@ -206,7 +215,8 @@ body{
     line-height: 1.5;
 }
 
-.producto_1 > .compra, .producto_2 > .compra, .producto_3 > .compra, .producto_4 > .compra, .producto_5 > .compra, .producto_6 > .compra, .producto_7 > .compra, .producto_8 > .compra{
+.producto_1 > .compra, .producto_2 > .compra, .producto_3 > .compra, .producto_4 > .compra, .producto_5 > .compra, .producto_6 > .compra, .producto_7 > .compra, .producto_8 > .compra,
+.producto_9 > .compra, .producto_10 > .compra, .producto_11 > .compra, .producto_12 > .compra, .producto_13 > .compra, .producto_14 > .compra, .producto_15 > .compra, .producto_16 > .compra{
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -214,7 +224,8 @@ body{
     gap: 12px;
 }
 
-.producto_1 > .imagen > img, .producto_2 > .imagen > img, .producto_3 > .imagen > img, .producto_4 > .imagen > img, .producto_5 > .imagen > img, .producto_6 > .imagen > img, .producto_7 > .imagen > img, .producto_8 > .imagen > img{
+.producto_1 > .imagen > img, .producto_2 > .imagen > img, .producto_3 > .imagen > img, .producto_4 > .imagen > img, .producto_5 > .imagen > img, .producto_6 > .imagen > img, .producto_7 > .imagen > img, .producto_8 > .imagen > img,
+.producto_9 > .imagen > img, .producto_10 > .imagen > img, .producto_11 > .imagen > img, .producto_12 > .imagen > img, .producto_13 > .imagen > img, .producto_14 > .imagen > img, .producto_15 > .imagen > img, .producto_16 > .imagen > img{
     width: 100%;
     aspect-ratio: 1 / 1;
     object-fit: cover;
@@ -229,7 +240,15 @@ body{
 .producto_5 > .imagen:hover > img, 
 .producto_6 > .imagen:hover > img, 
 .producto_7 > .imagen:hover > img, 
-.producto_8 > .imagen:hover > img{
+.producto_8 > .imagen:hover > img,
+.producto_9 > .imagen:hover > img,
+.producto_10 > .imagen:hover > img,
+.producto_11 > .imagen:hover > img,
+.producto_12 > .imagen:hover > img,
+.producto_13 > .imagen:hover > img,
+.producto_14 > .imagen:hover > img,
+.producto_15 > .imagen:hover > img,
+.producto_16 > .imagen:hover > img{
     transform: scale(1.08);
 }
 
@@ -489,4 +508,60 @@ body{
 
 .btn-comprar:active{
     transform: translateY(0);
+}
+
+/* BOTÓN MOSTRAR MÁS */
+
+.ver_mas{
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+#showMoreBtn{
+    background-color: #4B2E2B;
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(75, 46, 43, 0.3);
+}
+
+#showMoreBtn:hover{
+    background-color: #3a2321;
+    transform: translateX(-10%) scale(1.1);
+    box-shadow: 0 8px 25px rgba(75, 46, 43, 0.4);
+}
+
+#showMoreBtn i{
+    color: white;
+}
+
+/* FOOTER */
+
+footer {
+    background-color: #4B2E2B;
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: center;
+}
+
+.footer-content p {
+    font-size: 14px;
+    margin: 0;
+    max-width: 600px;
 }

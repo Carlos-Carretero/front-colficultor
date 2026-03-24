@@ -12,8 +12,12 @@ const loginContainer = document.getElementById("loginContainer")
 const recoveryContainer = document.getElementById("recoveryContainer")
 const forgotPasswordSection = document.getElementById("forgotPasswordSection")
 
+let failedAttempts = 0;
+
 openBtn.onclick = ()=>{
     modal.classList.add("active")
+    failedAttempts = 0;
+    forgotPasswordSection.classList.add("hidden")
 }
 
 closeBtn.onclick = ()=>{
@@ -81,16 +85,22 @@ loginForm.addEventListener("submit", async (e) => {
             alert("Inicio de sesión exitoso");
             modal.classList.remove("active");
             loginForm.reset();
+            failedAttempts = 0;
         } else {
             const error = await response.json();
             alert(`Error: ${error.detail || "Credenciales incorrectas"}`);
-            // Mostrar opción de recuperar contraseña cuando falla el login
-            forgotPasswordSection.classList.remove("hidden");
+            failedAttempts++;
+            if (failedAttempts >= 1) {
+                forgotPasswordSection.classList.remove("hidden");
+            }
         }
     } catch (error) {
         console.error("Error en login:", error);
         alert("Ocurrió un error al intentar iniciar sesión. Verifica que el servidor esté corriendo.");
-        forgotPasswordSection.classList.remove("hidden");
+        failedAttempts++;
+        if (failedAttempts >= 1) {
+            forgotPasswordSection.classList.remove("hidden");
+        }
     }
 });
 
@@ -165,3 +175,7 @@ recoveryForm.addEventListener("submit", async (e) => {
         alert("Ocurrió un error. Por favor, intenta de nuevo.");
     }
 });
+
+// Botón Mostrar Más Productos (estructura sin funcionalidad por ahora)
+const showMoreBtn = document.getElementById("showMoreBtn");
+// Sin event listener por ahora
