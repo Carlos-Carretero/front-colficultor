@@ -12,12 +12,8 @@ const loginContainer = document.getElementById("loginContainer")
 const recoveryContainer = document.getElementById("recoveryContainer")
 const forgotPasswordSection = document.getElementById("forgotPasswordSection")
 
-let failedAttempts = 0;
-
 openBtn.onclick = ()=>{
     modal.classList.add("active")
-    failedAttempts = 0;
-    forgotPasswordSection.classList.add("hidden")
 }
 
 closeBtn.onclick = ()=>{
@@ -38,7 +34,6 @@ showRegister.onclick = ()=>{
 showLogin.onclick = ()=>{
     registerContainer.classList.add("hidden")
     loginContainer.classList.remove("hidden")
-    forgotPasswordSection.classList.add("hidden")
 }
 
 showForgotPassword.onclick = ()=>{
@@ -49,7 +44,6 @@ showForgotPassword.onclick = ()=>{
 backToLogin.onclick = ()=>{
     recoveryContainer.classList.add("hidden")
     loginContainer.classList.remove("hidden")
-    forgotPasswordSection.classList.add("hidden")
 }
 
 // Configuración del API
@@ -85,22 +79,13 @@ loginForm.addEventListener("submit", async (e) => {
             alert("Inicio de sesión exitoso");
             modal.classList.remove("active");
             loginForm.reset();
-            failedAttempts = 0;
         } else {
             const error = await response.json();
             alert(`Error: ${error.detail || "Credenciales incorrectas"}`);
-            failedAttempts++;
-            if (failedAttempts >= 1) {
-                forgotPasswordSection.classList.remove("hidden");
-            }
         }
     } catch (error) {
         console.error("Error en login:", error);
         alert("Ocurrió un error al intentar iniciar sesión. Verifica que el servidor esté corriendo.");
-        failedAttempts++;
-        if (failedAttempts >= 1) {
-            forgotPasswordSection.classList.remove("hidden");
-        }
     }
 });
 
@@ -165,7 +150,6 @@ recoveryForm.addEventListener("submit", async (e) => {
             recoveryForm.reset();
             recoveryContainer.classList.add("hidden");
             loginContainer.classList.remove("hidden");
-            forgotPasswordSection.classList.add("hidden");
         } else {
             const error = await response.json();
             alert(`Error: ${error.detail || "El correo no se encontró en nuestros registros"}`);
