@@ -242,15 +242,20 @@
                     </article>
 
                 </section>
-                <section class="ver más">
-
+                <section class="ver_mas">
+                    <button id="showMoreBtn">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
                 </section>
             </article>
         </section>
+
     </main>
 
     <footer>
-
+        <div class="footer-content">
+            <p>Colficultor - Plataforma que conecta caficultores con compradores de café de calidad. © 2023 Todos los derechos reservados.</p>
+        </div>
     </footer>
     <!-- MODAL AUTENTICACIÓN -->
 
@@ -289,6 +294,12 @@
                     ¿No tienes cuenta?
                     <button id="showRegister">
                         Registrarse
+                    </button>
+                </section>
+
+                <section class="forgot_password" id="forgotPasswordSection">
+                    <button id="showForgotPassword" type="button">
+                        ¿Olvidaste tu contraseña?
                     </button>
                 </section>
 
@@ -331,6 +342,36 @@
                     ¿Ya tienes cuenta?
                     <button id="showLogin">
                         Iniciar sesión
+                    </button>
+                </section>
+
+            </article>
+
+            <!-- RECUPERAR CONTRASEÑA -->
+
+            <article class="auth_container hidden" id="recoveryContainer">
+
+                <section class="titulo">
+                    <h2>Recuperar Contraseña</h2>
+                </section>
+
+                <section class="formulario">
+
+                    <form id="recoveryForm">
+
+                        <input type="email" id="recoveryEmail" placeholder="Ingresa tu correo electrónico" required>
+
+                        <button type="submit">
+                            Enviar Enlace de Recuperación
+                        </button>
+
+                    </form>
+
+                </section>
+
+                <section class="switch">
+                    <button id="backToLogin" type="button">
+                        Volver al login
                     </button>
                 </section>
 
