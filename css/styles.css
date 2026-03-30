@@ -35,7 +35,7 @@ body{
     grid-row: 1/5;
 
     position: relative;
-    z-index: 5;
+    z-index: 20;
 }
 
 .container_1 > .login{
@@ -71,6 +71,88 @@ body{
 
 .container_1 > .login:active{
     transform: translateY(-1px);
+}
+
+.user-profile{
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-profile.hidden{
+    display: none;
+}
+
+.user-btn{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    height: 50px;
+    background: linear-gradient(135deg, #E2902D 0%, #d17e1f 100%);
+    border: none;
+    color: #fff;
+    border-radius: 25px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.user-menu{
+    position: absolute;
+    right: 0;
+    top: 62px;
+    background: #ffffff;
+    border: 1px solid #dcdcdc;
+    border-radius: 14px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
+    padding: 6px 0;
+    width: 240px;
+    min-width: 220px;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.user-menu.hidden{
+    display: none;
+}
+
+.user-menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.user-menu-list li {
+    width: 100%;
+}
+
+.user-menu-item {
+    display: block;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: #4b2e2b;
+    text-align: left;
+    padding: 14px 18px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    min-height: 50px;
+    transition: background 0.18s ease, color 0.18s ease;
+    box-sizing: border-box;
+}
+
+.user-menu-list li + li {
+    border-top: 1px solid #f0f0f0;
+}
+
+.user-menu-item:hover,
+.user-menu-item:focus-visible {
+    background: rgba(226, 144, 45, 0.12);
+    color: #d17e1f;
+    outline: none;
 }
 
 .star-btn{
@@ -284,13 +366,76 @@ body{
     padding: 40px;
 
     border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
 
+.dashboard-panel {
+    position: fixed;
+    inset: 0;
     display: flex;
-    flex-direction: column;
-    gap: 25px;
-    
-    animation: slideIn 0.35s ease;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+}
+
+.dashboard-panel:not(.hidden) {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.dashboard-content {
+    width: min(560px, 100%);
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 28px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.15);
+    position: relative;
+}
+
+.close-panel {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    border: none;
+    background: transparent;
+    color: #4b2e2b;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.dashboard-header h2 {
+    margin: 0 0 16px;
+    font-size: 22px;
+    color: #4b2e2b;
+}
+
+.dashboard-body {
+    font-size: 15px;
+    color: #333;
+}
+
+.dashboard-section p {
+    margin: 0 0 12px;
+    line-height: 1.6;
+}
+
+.dashboard-action-btn {
+    border: none;
+    background: #e2902d;
+    color: white;
+    padding: 12px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: background 0.2s ease;
+}
+
+.dashboard-action-btn:hover {
+    background: #c6701d;
 }
 
 @keyframes slideIn {
