@@ -28,10 +28,17 @@
                         </svg>
                     </button>
                 </section>
-                <section class="login">
+                <section class="login" id="loginSection">
                     <button id="openLogin">
                         INICIAR SESION
                     </button>
+                </section>
+                <section class="user-profile hidden" id="userSection">
+                    <button class="user-btn" id="userMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">
+                        <span id="userNameDisplay">Perfil</span>
+                        <i class="fas fa-caret-down"></i>
+                    </button>
+                    <div class="user-menu hidden" id="userMenu"></div>
                 </section>
             </article>
         
@@ -251,6 +258,18 @@
         </section>
 
     </main>
+
+    <section class="dashboard-panel hidden" id="dashboardPanel">
+        <article class="dashboard-content">
+            <button class="close-panel" id="closeDashboardBtn" type="button">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="dashboard-header">
+                <h2 id="dashboardTitle"></h2>
+            </div>
+            <div class="dashboard-body" id="dashboardBody"></div>
+        </article>
+    </section>
 
     <footer>
         <div class="footer-content">
