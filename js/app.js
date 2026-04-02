@@ -57,8 +57,8 @@ backToLogin.onclick = ()=>{
     loginContainer.classList.remove("hidden")
 }
 
-// Configuración del API
-const API_URL = "http://localhost:8000/api/auth";
+// Configuración del API — importada desde config.js
+// API_CONFIG.API_URL y API_CONFIG.API_USERS_URL disponibles
 
 // Formularios
 const loginForm = document.getElementById("loginForm");
@@ -73,7 +73,7 @@ loginForm.addEventListener("submit", async (e) => {
     const password = document.getElementById("loginPassword").value;
     
     try {
-        const response = await fetch(`${API_URL}/login`, {
+        const response = await fetch(`${API_CONFIG.API_URL}/login`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
@@ -115,7 +115,7 @@ registerForm.addEventListener("submit", async (e) => {
     const password = document.getElementById("registerPassword").value;
 
     try {
-        const response = await fetch(`${API_URL}/register`, {
+        const response = await fetch(`${API_CONFIG.API_URL}/register`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -151,7 +151,7 @@ recoveryForm.addEventListener("submit", async (e) => {
     const email = document.getElementById("recoveryEmail").value;
     
     try {
-        const response = await fetch(`${API_URL}/forgot-password`, {
+        const response = await fetch(`${API_CONFIG.API_URL}/forgot-password`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -186,7 +186,7 @@ async function getCurrentUser() {
     if (!token) return null;
 
     try {
-        const res = await fetch("http://localhost:8000/api/users/me", {
+        const res = await fetch(`${API_CONFIG.API_USERS_URL}/me`, {
             method: "GET",
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -195,9 +195,9 @@ async function getCurrentUser() {
 
         if (!res.ok) {
             console.warn(`getCurrentUser failed: ${res.status}`);
-            if (res.status === 401 || res.status === 403) {
-                logout();
-            }
+            // No llamamos a logout() aquí — un error de red o backend caído
+            // no debe cerrar la sesión del usuario automáticamente.
+            // El usuario puede seguir navegando; la llamada se reintentará.
             return null;
         }
 
@@ -288,7 +288,7 @@ async function logout() {
 
     if (token) {
         try {
-            const response = await fetch(`${API_URL}/logout`, {
+            const response = await fetch(`${API_CONFIG.API_URL}/logout`, {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${token}`,

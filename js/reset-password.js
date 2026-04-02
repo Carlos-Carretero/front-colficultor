@@ -10,8 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     strengthError.style.cssText = 'color:#ff4444;font-size:0.85rem;margin-top:0.5rem;min-height:1.2rem;';
     newPasswordInput.parentElement.appendChild(strengthError);
 
-    // Configuration
-    const API_URL = "http://localhost:8000/api/auth";
+    // Configuration — usa API_CONFIG centralizado (definido en config.js)
 
     // Get token from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -105,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.innerHTML = '<div class="spinner"></div> Procesando...';
 
         try {
-            const response = await fetch(`${API_URL}/reset-password`, {
+            const response = await fetch(`${API_CONFIG.API_URL}/reset-password`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -161,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Optional: Validate token on page load
     async function validateToken() {
         try {
-            const response = await fetch(`${API_URL}/reset-password/validate?token=${encodeURIComponent(token)}`);
+            const response = await fetch(`${API_CONFIG.API_URL}/reset-password/validate?token=${encodeURIComponent(token)}`);
             const data = await response.json();
 
             if (!response.ok || !data.valid) {
