@@ -162,13 +162,14 @@ recoveryForm.addEventListener("submit", async (e) => {
         });
 
         if (response.ok) {
-            alert("Se ha enviado un enlace de recuperación a tu correo electrónico.");
+            const responseData = await response.json();
+            alert(responseData.message || "Se ha enviado un enlace de recuperación a tu correo electrónico.");
             recoveryForm.reset();
             recoveryContainer.classList.add("hidden");
             loginContainer.classList.remove("hidden");
         } else {
-            const error = await response.json();
-            alert(`Error: ${error.detail || "El correo no se encontró en nuestros registros"}`);
+            const errorData = await response.json();
+            alert(errorData.message || "No se pudo procesar la solicitud. Intenta más tarde.");
         }
     } catch (error) {
         console.error("Error en recuperación:", error);
