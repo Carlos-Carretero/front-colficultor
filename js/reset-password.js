@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.getElementById('submitBtn');
     const passwordStrength = document.getElementById('passwordStrength');
     const confirmError = document.getElementById('confirmError');
+    const strengthError = document.createElement('div');
+    strengthError.style.cssText = 'color:#ff4444;font-size:0.85rem;margin-top:0.5rem;min-height:1.2rem;';
+    newPasswordInput.parentElement.appendChild(strengthError);
 
     // Configuration
     const API_URL = "http://localhost:8000/api/auth";
@@ -23,27 +26,35 @@ document.addEventListener('DOMContentLoaded', function() {
     // Password strength checker
     function checkPasswordStrength(password) {
         let strength = 0;
-        const checks = [
-            password.length >= 8,
-            /[a-z]/.test(password),
-            /[A-Z]/.test(password),
-            /\d/.test(password),
-            /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
-        ];
+        const checks = {
+            length: password.length >= 8,
+            lower: /[a-z]/.test(password),
+            upper: /[A-Z]/.test(password),
+            digit: /\d/.test(password),
+            special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+        };
 
-        strength = checks.filter(Boolean).length;
+        strength = Object.values(checks).filter(Boolean).length;
 
         passwordStrength.className = 'password-strength';
+        strengthError.textContent = '';
+
+        if (password.length === 0) {
+            passwordStrength.className = 'password-strength';
+            return false;
+        }
 
         if (strength <= 2) {
             passwordStrength.classList.add('weak');
+            if (!checks.special) strengthError.textContent = 'Falta: un símbolo (!@#$%…)';
         } else if (strength <= 4) {
             passwordStrength.classList.add('medium');
+            if (!checks.special) strengthError.textContent = 'Añade un símbolo para mayor seguridad';
         } else {
             passwordStrength.classList.add('strong');
         }
 
-        return strength >= 3; // Require at least medium strength
+        return strength >= 3;
     }
 
     // Password input handler
@@ -126,8 +137,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 `;
             } else {
-                // Error
-                alert(`Error: ${data.detail || 'No se pudo restablecer la contraseña. El enlace puede haber expirado.'}`);
+                // Error — Pydantic 422 devuelve detail como array de objetos
+                let errorMsg = 'No se pudo restablecer la contraseña. El enlace puede haber expirado.';
+                if (data.detail) {
+                    if (typeof data.detail === 'string') {
+                        errorMsg = data.detail;
+                    } else if (Array.isArray(data.detail) && data.detail.length > 0) {
+                        errorMsg = data.detail[0].msg || data.detail[0].message || errorMsg;
+                    }
+                }
+                alert(`Error: ${errorMsg}`);
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-key"></i> Restablecer Contraseña';
             }
