@@ -101,8 +101,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({
                     token: token,
-                    new_password: newPassword,
-                    confirm_password: newPassword, // Backend expects this field
+                    newPassword: newPassword,
+                    confirmPassword: newPassword,
                 }),
             });
 
