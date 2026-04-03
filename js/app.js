@@ -23,6 +23,22 @@ const closeDashboardBtn = document.getElementById("closeDashboardBtn")
 
 let currentUser = null
 
+// ── reCAPTCHA v3 ───────────────────────────────────────────────
+const RECAPTCHA_SITE_KEY = "6LcTDaQsAAAAAFqnC9Ib3PAPf1Zfcc-YztBQK7lF"
+
+async function getRecaptchaToken(action) {
+    if (typeof grecaptcha === "undefined") {
+        console.warn("grecaptcha no cargado — omitiendo token")
+        return null
+    }
+    try {
+        return await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action })
+    } catch (e) {
+        console.error("Error ejecutando reCAPTCHA:", e)
+        return null
+    }
+}
+
 openBtn.onclick = ()=>{
     modal.classList.add("active")
 }
@@ -82,11 +98,13 @@ loginForm.addEventListener("submit", async (e) => {
     const password = document.getElementById("loginPassword").value;
     
     try {
+        const recaptchaToken = await getRecaptchaToken("login")
+        const headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        if (recaptchaToken) headers["x-recaptcha-token"] = recaptchaToken
+
         const response = await fetch(`${API_CONFIG.API_URL}/login`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
+            headers,
             body: new URLSearchParams({
                 username: email,
                 password: password,
@@ -124,11 +142,13 @@ registerForm.addEventListener("submit", async (e) => {
     const password = document.getElementById("registerPassword").value;
 
     try {
+        const recaptchaToken = await getRecaptchaToken("register")
+        const headers = {"Content-Type": "application/json"}
+        if (recaptchaToken) headers["x-recaptcha-token"] = recaptchaToken
+
         const response = await fetch(`${API_CONFIG.API_URL}/register`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers,
             body: JSON.stringify({
                 email: email,
                 full_name: name,
@@ -160,11 +180,13 @@ recoveryForm.addEventListener("submit", async (e) => {
     const email = document.getElementById("recoveryEmail").value;
     
     try {
+        const recaptchaToken = await getRecaptchaToken("forgot_password")
+        const headers = {"Content-Type": "application/json"}
+        if (recaptchaToken) headers["x-recaptcha-token"] = recaptchaToken
+
         const response = await fetch(`${API_CONFIG.API_URL}/forgot-password`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers,
             body: JSON.stringify({
                 email: email,
             }),

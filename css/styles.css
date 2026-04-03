@@ -109,6 +109,7 @@ body{
     padding: 6px 0;
     width: 240px;
     min-width: 220px;
+    max-width: calc(100vw - 20px);
     z-index: 9999;
     overflow: hidden;
 }
@@ -364,13 +365,14 @@ body{
     inset: 0;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     padding: 20px;
     background: rgba(0, 0, 0, 0.35);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
     z-index: 1000;
+    overflow-y: auto;
 }
 
 .dashboard-panel:not(.hidden) {
@@ -380,11 +382,14 @@ body{
 
 .dashboard-content {
     width: min(560px, 100%);
+    max-height: calc(100vh - 40px);
     background: #ffffff;
     border-radius: 24px;
     padding: 28px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.15);
     position: relative;
+    overflow-y: auto;
+    margin: auto;
 }
 
 .close-panel {
@@ -764,6 +769,7 @@ footer {
         right: 0;
         left: auto;
         transform: none;
+        max-width: calc(100vw - 20px);
     }
 
     .container_2 {
