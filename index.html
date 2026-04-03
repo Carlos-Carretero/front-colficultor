@@ -1,275 +1,209 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Colficultor</title>
     <link rel="stylesheet" href="./css/styles.css">
     <script src="./js/config.js" defer></script>
     <script src="./js/app.js" defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lobster&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Rubik+Glitch&display=swap"
-    rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,700;1,400&display=swap"
+        rel="stylesheet"
+    >
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://www.google.com/recaptcha/api.js?render=6LcTDaQsAAAAAFqnC9Ib3PAPf1Zfcc-YztBQK7lF" async defer></script>
 </head>
 <body>
-    
-    <header>
+    <header class="site-header">
+        <nav class="navbar container" aria-label="Navegación principal">
+            <a class="brand" href="#" aria-label="Inicio Colficultor">
+                <span class="brand-mark" aria-hidden="true"><i class="fas fa-seedling"></i></span>
+                <span class="brand-text">COLFICULTOR</span>
+            </a>
 
+            <button
+                class="nav-toggle"
+                id="navToggleBtn"
+                type="button"
+                aria-expanded="false"
+                aria-controls="primaryNav"
+                aria-label="Abrir menú"
+            >
+                <i class="fas fa-bars" aria-hidden="true"></i>
+            </button>
+
+            <ul class="nav-links" id="primaryNav">
+                <li><a href="#catalogo">Catálogo</a></li>
+                <li><a href="#filtros">Filtros</a></li>
+                <li><a href="#contacto">Contacto</a></li>
+            </ul>
+        </nav>
     </header>
 
     <main>
-        <section class = "container_principal">
-            <article class="container_1">
-                <section class="Estrella">
-                    <button class="star-btn" aria-label="Favoritos">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M12 3l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 18l-5.9 3 1.2-6.5L2.5 9.9 9.1 9z"/>
-                        </svg>
-                    </button>
+        <section class="container_principal">
+            <article class="container_1" aria-label="Encabezado principal">
+                <section class="hero-content">
+                    <p class="hero-kicker">Plataforma para caficultores y compradores</p>
+                    <h1>Conecta tu café con mejores oportunidades</h1>
+                    <p class="hero-description">
+                        Gestiona productos, ventas y compras desde una interfaz clara, adaptable y optimizada para cualquier dispositivo.
+                    </p>
                 </section>
-                <section class="login" id="loginSection">
-                    <button id="openLogin">
-                        INICIAR SESION
-                    </button>
-                </section>
-                <section class="user-profile hidden" id="userSection">
-                    <button class="user-btn" id="userMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">
-                        <span id="userNameDisplay">Perfil</span>
-                        <i class="fas fa-caret-down"></i>
-                    </button>
-                    <div class="user-menu hidden" id="userMenu"></div>
+
+                <section class="hero-actions">
+                    <section class="Estrella">
+                        <button class="star-btn" aria-label="Favoritos">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 3l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 18l-5.9 3 1.2-6.5L2.5 9.9 9.1 9z"/>
+                            </svg>
+                        </button>
+                    </section>
+
+                    <section class="login" id="loginSection">
+                        <button id="openLogin" type="button">
+                            INICIAR SESION
+                        </button>
+                    </section>
+
+                    <section class="user-profile hidden" id="userSection">
+                        <button class="user-btn" id="userMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">
+                            <span id="userNameDisplay">Perfil</span>
+                            <i class="fas fa-caret-down" aria-hidden="true"></i>
+                        </button>
+                        <div class="user-menu hidden" id="userMenu"></div>
+                    </section>
                 </section>
             </article>
-        
-            <article class="container_2">
-                <button class="mobile-filter-btn" id="mobileFilterBtn" style="display: none;">
-                    <i class="fas fa-filter"></i> Filtros de Café
+
+            <article class="container_2" id="filtros" aria-label="Filtros de café">
+                <button class="mobile-filter-btn" id="mobileFilterBtn" type="button">
+                    <i class="fas fa-filter" aria-hidden="true"></i> FILTROS DE CAFÉ
                 </button>
                 <div class="tags-wrapper" id="tagsWrapper">
-                    <section class="tag_1">
-                        <button>Arábico</button>
-                    </section>
-                    <section class="tag_2">
-                        <button>Barbón</button>
-                    </section>
-                    <section class="tag_3">
-                        <button>Libérica</button>
-                    </section>
-                    <section class="tag_4">
-                        <button>Castilla</button>
-                    </section>
-                    <section class="tag_5">
-                        <button>Caturra</button>
-                    </section>
+                    <section class="tag_1"><button type="button">ARÁBICO</button></section>
+                    <section class="tag_2"><button type="button">BARBÓN</button></section>
+                    <section class="tag_3"><button type="button">LIBÉRICA</button></section>
+                    <section class="tag_4"><button type="button">CASTILLA</button></section>
+                    <section class="tag_5"><button type="button">CATURRA</button></section>
                 </div>
             </article>
 
-            <article class="container_3">
-                <section class="productos">
-
+            <article class="container_3" id="catalogo">
+                <section class="productos" aria-label="Catálogo de productos">
                     <article class="producto_1">
                         <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/05/ab/b1/05abb1beb47ac34d08d9105297a78f61.jpg" alt="">
+                            <img src="https://i.pinimg.com/1200x/05/ab/b1/05abb1beb47ac34d08d9105297a78f61.jpg" alt="Café de origen en grano">
                         </section>
-                        <section class="nombre">
-                            LOREM
-                        </section>
-                        <section class="descripcion">
-                            lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem
-                        </section>
+                        <section class="nombre">LOREM</section>
+                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
                         <section class="compra">
-                            <article>
-                                <span class="precio">
-                                    $50.000
-                                </span>
-                            </article>
-                            <article>
-                                <button class="btn-comprar">
-                                    COMPRAR
-                                </button>
-                            </article>
-                        </section>
-                    </article>
-                    <article class="producto_2">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/22/16/ff/2216ff7953840a5121a75d8092d05a7b.jpg" alt="">
-                        </section>
-                        <section class="nombre">
-                            LOREM
-                        </section>
-                        <section class="descripcion">
-                            lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem
-                        </section>
-                        <section class="compra">
-                            <article>
-                                <span class="precio">
-                                    $50.000
-                                </span>
-                            </article>
-                            <article>
-                                <button class="btn-comprar">
-                                    COMPRAR
-                                </button>
-                            </article>
-                        </section>
-                    </article>
-                    <article class="producto_3">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/87/9c/0e/879c0eced93877996d5f6124e77deb92.jpg" alt="">
-                        </section>
-                        <section class="nombre">
-                            LOREM
-                        </section>
-                        <section class="descripcion">
-                            lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem
-                        </section>
-                        <section class="compra">
-                            <article>
-                                <span class="precio">
-                                    $50.000
-                                </span>
-                            </article>
-                            <article>
-                                <button class="btn-comprar">
-                                    COMPRAR
-                                </button>
-                            </article>
-                        </section>
-                    </article>
-                    <article class="producto_4">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/736x/18/8b/a8/188ba8e1b852e7dc69d496d94aedeb62.jpg" alt="">
-                        </section>
-                        <section class="nombre">
-                            LOREM
-                        </section>
-                        <section class="descripcion">
-                            lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem
-                        </section>
-                        <section class="compra">
-                            <article>
-                                <span class="precio">
-                                    $50.000
-                                </span>
-                            </article>
-                            <article>
-                                <button class="btn-comprar">
-                                    COMPRAR
-                                </button>
-                            </article>
-                        </section>
-                    </article>
-                    <article class="producto_5">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/0c/9b/fa/0c9bfa80d5ca72cd1a4eec6dccec4a78.jpg" alt="">
-                        </section>
-                        <section class="nombre">
-                            LOREM
-                        </section>
-                        <section class="descripcion">
-                            lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem
-                        </section>
-                        <section class="compra">
-                            <article>
-                                <span class="precio">
-                                    $50.000
-                                </span>
-                            </article>
-                            <article>
-                                <button class="btn-comprar">
-                                    COMPRAR
-                                </button>
-                            </article>
-                        </section>
-                    </article>
-                    <article class="producto_6">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/5f/26/94/5f269416f5d078440702cc53d6bcad2a.jpg" alt="">
-                        </section>
-                        <section class="nombre">
-                            LOREM
-                        </section>
-                        <section class="descripcion">
-                            lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem
-                        </section>
-                        <section class="compra">
-                            <article>
-                                <span class="precio">
-                                    $50.000
-                                </span>
-                            </article>
-                            <article>
-                                <button class="btn-comprar">
-                                    COMPRAR
-                                </button>
-                            </article>
-                        </section>
-                    </article>
-                    <article class="producto_7">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/736x/a0/7f/38/a07f38e0343e2a73b79a3aadd7c7c540.jpg" alt="">
-                        </section>
-                        <section class="nombre">
-                            LOREM
-                        </section>
-                        <section class="descripcion">
-                            lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem
-                        </section>
-                        <section class="compra">
-                            <article>
-                                <span class="precio">
-                                    $50.000
-                                </span>
-                            </article>
-                            <article>
-                                <button class="btn-comprar">
-                                    COMPRAR
-                                </button>
-                            </article>
-                        </section>
-                    </article>
-                    <article class="producto_8">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/18/b4/47/18b447d58e3f0bdd5802ccd18e9f765e.jpg" alt="">
-                        </section>
-                        <section class="nombre">
-                            LOREM
-                        </section>
-                        <section class="descripcion">
-                            lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem
-                        </section>
-                        <section class="compra">
-                            <article>
-                                <span class="precio">
-                                    $50.000
-                                </span>
-                            </article>
-                            <article>
-                                <button class="btn-comprar">
-                                    COMPRAR
-                                </button>
-                            </article>
+                            <article><span class="precio">$50.000</span></article>
+                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
                         </section>
                     </article>
 
+                    <article class="producto_2">
+                        <section class="imagen">
+                            <img src="https://i.pinimg.com/1200x/22/16/ff/2216ff7953840a5121a75d8092d05a7b.jpg" alt="Café tostado artesanal">
+                        </section>
+                        <section class="nombre">LOREM</section>
+                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
+                        <section class="compra">
+                            <article><span class="precio">$50.000</span></article>
+                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
+                        </section>
+                    </article>
+
+                    <article class="producto_3">
+                        <section class="imagen">
+                            <img src="https://i.pinimg.com/1200x/87/9c/0e/879c0eced93877996d5f6124e77deb92.jpg" alt="Café en presentación premium">
+                        </section>
+                        <section class="nombre">LOREM</section>
+                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
+                        <section class="compra">
+                            <article><span class="precio">$50.000</span></article>
+                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
+                        </section>
+                    </article>
+
+                    <article class="producto_4">
+                        <section class="imagen">
+                            <img src="https://i.pinimg.com/736x/18/8b/a8/188ba8e1b852e7dc69d496d94aedeb62.jpg" alt="Empaque de café listo para venta">
+                        </section>
+                        <section class="nombre">LOREM</section>
+                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
+                        <section class="compra">
+                            <article><span class="precio">$50.000</span></article>
+                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
+                        </section>
+                    </article>
+
+                    <article class="producto_5">
+                        <section class="imagen">
+                            <img src="https://i.pinimg.com/1200x/0c/9b/fa/0c9bfa80d5ca72cd1a4eec6dccec4a78.jpg" alt="Café especial para compradores">
+                        </section>
+                        <section class="nombre">LOREM</section>
+                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
+                        <section class="compra">
+                            <article><span class="precio">$50.000</span></article>
+                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
+                        </section>
+                    </article>
+
+                    <article class="producto_6">
+                        <section class="imagen">
+                            <img src="https://i.pinimg.com/1200x/5f/26/94/5f269416f5d078440702cc53d6bcad2a.jpg" alt="Café en bolsa sellada">
+                        </section>
+                        <section class="nombre">LOREM</section>
+                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
+                        <section class="compra">
+                            <article><span class="precio">$50.000</span></article>
+                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
+                        </section>
+                    </article>
+
+                    <article class="producto_7">
+                        <section class="imagen">
+                            <img src="https://i.pinimg.com/736x/a0/7f/38/a07f38e0343e2a73b79a3aadd7c7c540.jpg" alt="Café de finca colombiana">
+                        </section>
+                        <section class="nombre">LOREM</section>
+                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
+                        <section class="compra">
+                            <article><span class="precio">$50.000</span></article>
+                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
+                        </section>
+                    </article>
+
+                    <article class="producto_8">
+                        <section class="imagen">
+                            <img src="https://i.pinimg.com/1200x/18/b4/47/18b447d58e3f0bdd5802ccd18e9f765e.jpg" alt="Café tostión media">
+                        </section>
+                        <section class="nombre">LOREM</section>
+                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
+                        <section class="compra">
+                            <article><span class="precio">$50.000</span></article>
+                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
+                        </section>
+                    </article>
                 </section>
+
                 <section class="ver_mas">
-                    <button id="showMoreBtn">
-                        <i class="fas fa-chevron-down"></i>
+                    <button id="showMoreBtn" type="button" aria-label="Ver más productos">
+                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
                     </button>
                 </section>
             </article>
         </section>
-
     </main>
 
     <section class="dashboard-panel hidden" id="dashboardPanel">
         <article class="dashboard-content">
-            <button class="close-panel" id="closeDashboardBtn" type="button">
-                <i class="fas fa-times"></i>
+            <button class="close-panel" id="closeDashboardBtn" type="button" aria-label="Cerrar panel">
+                <i class="fas fa-times" aria-hidden="true"></i>
             </button>
             <div class="dashboard-header">
                 <h2 id="dashboardTitle"></h2>
@@ -278,134 +212,72 @@
         </article>
     </section>
 
-    <footer>
-        <div class="footer-content">
-            <p>Colficultor - Plataforma que conecta caficultores con compradores de café de calidad. © 2023 Todos los derechos reservados.</p>
+    <footer id="contacto">
+        <div class="footer-content container">
+            <p>Colficultor - Plataforma que conecta caficultores con compradores de café de calidad. © 2026 Todos los derechos reservados.</p>
         </div>
     </footer>
-    <!-- MODAL AUTENTICACIÓN -->
 
     <section class="modal" id="authModal">
         <article class="modal_content">
-
             <section class="close_modal">
-                <button id="closeModal">
-                    <i class="fa-solid fa-xmark"></i>
+                <button id="closeModal" type="button" aria-label="Cerrar autenticación">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                 </button>
             </section>
 
             <article class="auth_container" id="loginContainer">
-
-                <section class="titulo">
-                    <h2>Iniciar Sesión</h2>
-                </section>
-
+                <section class="titulo"><h2>Iniciar Sesión</h2></section>
                 <section class="formulario">
-
                     <form id="loginForm">
-
                         <input type="email" id="loginEmail" placeholder="Correo electrónico" required>
-
                         <input type="password" id="loginPassword" placeholder="Contraseña" required>
-
-                        <button type="submit">
-                            Ingresar
-                        </button>
-
+                        <button type="submit">Ingresar</button>
                     </form>
-
                 </section>
-
                 <section class="switch">
                     ¿No tienes cuenta?
-                    <button id="showRegister">
-                        Registrarse
-                    </button>
+                    <button id="showRegister" type="button">Registrarse</button>
                 </section>
-
                 <section class="forgot_password" id="forgotPasswordSection">
-                    <button id="showForgotPassword" type="button">
-                        ¿Olvidaste tu contraseña?
-                    </button>
+                    <button id="showForgotPassword" type="button">¿Olvidaste tu contraseña?</button>
                 </section>
-
             </article>
 
-
-            <!-- REGISTRO -->
-
             <article class="auth_container hidden" id="registerContainer">
-
-                <section class="titulo">
-                    <h2>Crear Cuenta</h2>
-                </section>
-
+                <section class="titulo"><h2>Crear Cuenta</h2></section>
                 <section class="formulario">
-
                     <form id="registerForm">
-
                         <input type="text" id="registerName" placeholder="Nombre" required>
-
                         <input type="email" id="registerEmail" placeholder="Correo electrónico" required>
-
                         <select id="registerRole" required>
                             <option value="" disabled selected>Seleccione un rol</option>
                             <option value="caficultor">Caficultor</option>
                             <option value="comprador">Comprador</option>
                         </select>
-
                         <input type="password" id="registerPassword" placeholder="Contraseña" required>
-
-                        <button type="submit">
-                            Registrarse
-                        </button>
-
+                        <button type="submit">Registrarse</button>
                     </form>
-
                 </section>
-
                 <section class="switch">
                     ¿Ya tienes cuenta?
-                    <button id="showLogin">
-                        Iniciar sesión
-                    </button>
+                    <button id="showLogin" type="button">Iniciar sesión</button>
                 </section>
-
             </article>
-
-            <!-- RECUPERAR CONTRASEÑA -->
 
             <article class="auth_container hidden" id="recoveryContainer">
-
-                <section class="titulo">
-                    <h2>Recuperar Contraseña</h2>
-                </section>
-
+                <section class="titulo"><h2>Recuperar Contraseña</h2></section>
                 <section class="formulario">
-
                     <form id="recoveryForm">
-
                         <input type="email" id="recoveryEmail" placeholder="Ingresa tu correo electrónico" required>
-
-                        <button type="submit">
-                            Enviar Enlace de Recuperación
-                        </button>
-
+                        <button type="submit">Enviar Enlace de Recuperación</button>
                     </form>
-
                 </section>
-
                 <section class="switch">
-                    <button id="backToLogin" type="button">
-                        Volver al login
-                    </button>
+                    <button id="backToLogin" type="button">Volver al login</button>
                 </section>
-
             </article>
-
         </article>
-
     </section>
-
 </body>
 </html>

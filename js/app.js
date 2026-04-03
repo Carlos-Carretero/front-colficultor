@@ -16,6 +16,8 @@ const userSection = document.getElementById("userSection")
 const userMenuBtn = document.getElementById("userMenuBtn")
 const userMenu = document.getElementById("userMenu")
 const userNameDisplay = document.getElementById("userNameDisplay")
+const navToggleBtn = document.getElementById("navToggleBtn")
+const primaryNav = document.getElementById("primaryNav")
 const dashboardPanel = document.getElementById("dashboardPanel")
 const dashboardTitle = document.getElementById("dashboardTitle")
 const dashboardBody = document.getElementById("dashboardBody")
@@ -71,6 +73,36 @@ showForgotPassword.onclick = ()=>{
 backToLogin.onclick = ()=>{
     recoveryContainer.classList.add("hidden")
     loginContainer.classList.remove("hidden")
+}
+
+// Menú principal (móvil)
+function closePrimaryNav() {
+    if (!primaryNav || !navToggleBtn) return
+    primaryNav.classList.remove("is-open")
+    navToggleBtn.setAttribute("aria-expanded", "false")
+}
+
+function togglePrimaryNav() {
+    if (!primaryNav || !navToggleBtn) return
+    const isOpen = primaryNav.classList.toggle("is-open")
+    navToggleBtn.setAttribute("aria-expanded", isOpen ? "true" : "false")
+}
+
+if (navToggleBtn && primaryNav) {
+    navToggleBtn.addEventListener("click", (event) => {
+        event.stopPropagation()
+        togglePrimaryNav()
+    })
+
+    primaryNav.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => closePrimaryNav())
+    })
+
+    window.addEventListener("resize", () => {
+        if (window.innerWidth >= 768) {
+            closePrimaryNav()
+        }
+    })
 }
 
 // Filtros desplegables para celular
@@ -654,6 +686,9 @@ document.addEventListener("click", (event) => {
     if (!userSection.contains(target)) {
         userMenu.classList.add("hidden");
         userMenuBtn.setAttribute("aria-expanded", "false");
+    }
+    if (primaryNav && navToggleBtn && !primaryNav.contains(target) && !navToggleBtn.contains(target)) {
+        closePrimaryNav()
     }
 });
 
