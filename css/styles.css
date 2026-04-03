@@ -35,7 +35,7 @@ body{
     grid-row: 1/5;
 
     position: relative;
-    z-index: 20;
+    /* Removido z-index: 20 para evitar bloquear el menú desplegable */
 }
 
 .container_1 > .login{
@@ -109,6 +109,7 @@ body{
     padding: 6px 0;
     width: 240px;
     min-width: 220px;
+    max-width: calc(100vw - 20px);
     z-index: 9999;
     overflow: hidden;
 }
@@ -195,7 +196,7 @@ body{
     grid-column: 1/-1;
     grid-row: 4/5;
     position: relative;
-    z-index: 10;
+    z-index: 30; /* Subido para que quede por encima del banner */
 }
 
 .tag_1, .tag_2, .tag_3, .tag_4, .tag_5{
@@ -226,6 +227,16 @@ body{
     font-weight: 600;
 }
 
+/* Contenedor de tags añadido dinámicamente */
+.tags-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
 /* PRODUCTOS */
 
 .container_3{
@@ -243,44 +254,25 @@ body{
 }
 
 .productos{
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
     gap: 30px;
+    width: 100%;
     max-width: 1400px;
 }
 
-.productos > .producto_1, .productos > .producto_2, .productos > .producto_3, .productos > .producto_4, .productos > .producto_5, .productos > .producto_6, .productos > .producto_7, .productos > .producto_8,
-.productos > .producto_9, .productos > .producto_10, .productos > .producto_11, .productos > .producto_12, .productos > .producto_13, .productos > .producto_14, .productos > .producto_15, .productos > .producto_16{
-    width: 20%;
-    min-width: 200px;
-    gap: 12px;
-    padding: 18px;
+.productos > article {
     background-color: #FFFFFF;
     border-radius: 15px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
     transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
+    padding: 18px;
+    gap: 12px;
 }
 
-.productos > .producto_1:hover, 
-.productos > .producto_2:hover, 
-.productos > .producto_3:hover, 
-.productos > .producto_4:hover, 
-.productos > .producto_5:hover, 
-.productos > .producto_6:hover, 
-.productos > .producto_7:hover, 
-.productos > .producto_8:hover,
-.productos > .producto_9:hover,
-.productos > .producto_10:hover,
-.productos > .producto_11:hover,
-.productos > .producto_12:hover,
-.productos > .producto_13:hover,
-.productos > .producto_14:hover,
-.productos > .producto_15:hover,
-.productos > .producto_16:hover{
+.productos > article:hover {
     transform: translateY(-10px);
     box-shadow: 0 16px 40px rgba(226, 144, 45, 0.2);
 }
@@ -373,13 +365,14 @@ body{
     inset: 0;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     padding: 20px;
     background: rgba(0, 0, 0, 0.35);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
     z-index: 1000;
+    overflow-y: auto;
 }
 
 .dashboard-panel:not(.hidden) {
@@ -389,11 +382,14 @@ body{
 
 .dashboard-content {
     width: min(560px, 100%);
+    max-height: calc(100vh - 40px);
     background: #ffffff;
     border-radius: 24px;
     padding: 28px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.15);
     position: relative;
+    overflow-y: auto;
+    margin: auto;
 }
 
 .close-panel {
@@ -709,4 +705,251 @@ footer {
     font-size: 14px;
     margin: 0;
     max-width: 600px;
+}
+
+/* =========================================
+   MEDIA QUERIES - RESPONSIVE DESIGN
+   ========================================= */
+
+/* Limpieza de anchos forzados ya que ahora usamos Grid */
+
+@media screen and (max-width: 768px) {
+    .container_principal {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+
+    .container_1 {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 20px 20px;
+        min-height: 150px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .container_1 > .login {
+        width: auto;
+        height: 40px;
+        padding: 0 15px;
+    }
+    
+    .container_1 > .login > button {
+        font-size: 11px;
+    }
+    
+    .star-btn {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .star-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .user-btn {
+        height: 40px;
+        padding: 5px 12px;
+        font-size: 12px;
+    }
+    
+    .user-profile {
+        margin-top: 0px;
+    }
+    
+    .user-menu {
+        top: 100%;
+        margin-top: 5px;
+        right: 0;
+        left: auto;
+        transform: none;
+        max-width: calc(100vw - 20px);
+    }
+
+    .container_2 {
+        padding: 10px;
+        margin-top: -20px; 
+        z-index: 40;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* Botón de Filtros para móviles */
+    .mobile-filter-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: #4B2E2B;
+        color: white;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        cursor: pointer;
+        width: max-content;
+        margin: 0 auto;
+    }
+
+    .tags-wrapper {
+        display: none;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin-top: 15px;
+        background: white;
+        padding: 12px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        width: 100%;
+    }
+    
+    .tags-wrapper.opened {
+        display: flex;
+    }
+
+    .tag_1, .tag_2, .tag_3, .tag_4, .tag_5{
+        font-size: 12px;
+        padding: 8px 14px;
+        width: auto !important;
+    }
+
+    .container_3 {
+        padding: 30px 15px;
+        flex-grow: 1; /* expand to fill */
+    }
+
+    .productos {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px;
+    }
+    
+    .modal_content {
+        width: 90%;
+        padding: 20px 15px;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .container_1 {
+        min-height: 100px;
+        padding: 15px 10px;
+        gap: 8px;
+        justify-content: center;
+    }
+
+    .container_3 {
+        padding: 15px 10px;
+    }
+
+    /* Reglas para lograr 3 tarjetas en celular (~320px-400px ancho total) */
+    .productos {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    
+    .productos > article {
+        padding: 8px;
+        gap: 6px;
+        border-radius: 8px;
+    }
+
+    .productos > article > .nombre {
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .productos > article > .descripcion {
+        display: none; /* Ocultamos descripcion para ahorrar mucho espacio */
+    }
+    
+    .producto_1 > .compra, .producto_2 > .compra, .producto_3 > .compra, .producto_4 > .compra, .producto_5 > .compra, .producto_6 > .compra, .producto_7 > .compra, .producto_8 > .compra,
+    .producto_9 > .compra, .producto_10 > .compra, .producto_11 > .compra, .producto_12 > .compra, .producto_13 > .compra, .producto_14 > .compra, .producto_15 > .compra, .producto_16 > .compra{
+        flex-direction: column;
+        align-items: stretch;
+        gap: 5px;
+        margin-top: auto;
+    }
+
+    .precio {
+        padding: 3px 0;
+        font-size: 10px;
+        text-align: center;
+        border: none;
+        background: rgba(226, 144, 45, 0.1);
+        border-radius: 8px;
+        width: 100%;
+    }
+
+    .btn-comprar {
+        padding: 4px 0;
+        font-size: 9px;
+        border: none;
+        background: #E2902D;
+        color: white;
+        border-radius: 8px;
+        width: 100%;
+    }
+    
+    #showMoreBtn {
+        width: 35px;
+        height: 35px;
+        padding: 0;
+        font-size: 14px;
+        margin-top: -20px;
+    }
+    
+    .dashboard-content {
+        padding: 20px 15px;
+        width: 100%;
+        border-radius: 15px;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+
+    .dashboard-header h2 {
+        font-size: 16px;
+        margin-right: 20px;
+    }
+    
+    .dashboard-action-btn {
+        width: 100%;
+        justify-content: center;
+        font-size: 14px;
+        padding: 10px;
+    }
+
+    .modal_content {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .container_1 > .login {
+        height: 35px;
+        padding: 0 10px;
+    }
+    
+    .container_1 > .login > button {
+        font-size: 10px;
+    }
+    
+    .star-btn {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .user-btn {
+        height: 35px;
+        padding: 5px 10px;
+    }
 }
