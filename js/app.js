@@ -303,8 +303,18 @@ function buildCatalogUrl() {
 
 function renderCatalogItems(items) {
     if (!catalogResults) return
-    catalogResults.innerHTML = items.map((product) => `
+    catalogResults.innerHTML = items.map((product) => {
+        const imgUrl = product.urls_imagenes && product.urls_imagenes.length > 0
+            ? product.urls_imagenes[0]
+            : null
+        const imgHtml = imgUrl
+            ? `<img src="${imgUrl}" alt="${product.nombre}" class="catalog-card-img" />`
+            : `<div class="catalog-card-img-placeholder"><i class="fas fa-image"></i></div>`
+        return `
         <article class="catalog-card">
+            <section class="catalog-card-image">
+                ${imgHtml}
+            </section>
             <section class="catalog-card-header">
                 <p class="catalog-region">${product.region || product.origen || "Sin región"}</p>
                 <p class="catalog-stock">Stock: ${product.stock ?? 0}</p>
@@ -320,7 +330,7 @@ function renderCatalogItems(items) {
                 </button>
             </section>
         </article>
-    `).join("")
+    `}).join("")
 }
 
 function updateCatalogPagination() {
@@ -1226,8 +1236,11 @@ async function openMyProducts() {
                 productsGrid.innerHTML = products.map(p => `
                     <article style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; opacity: ${p.is_active ? '1' : '0.6'}; position: relative;">
                         ${!p.is_active ? '<div style="position:absolute; top:10px; right:10px; background:red; color:white; padding:2px 8px; border-radius:12px; font-size:0.7rem; font-weight:bold;">Inactivo</div>' : ''}
-                        <section style="width: 100%; height: 160px; background: #e9ecef; display: flex; justify-content: center; align-items: center;">
-                            <i class="fas fa-image" style="font-size: 3rem; color: #adb5bd;"></i>
+                        <section style="width: 100%; aspect-ratio: 1 / 1; background: #e9ecef; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+                            ${p.urls_imagenes && p.urls_imagenes.length > 0
+                                ? `<img src="${p.urls_imagenes[0]}" alt="${p.nombre}" style="width:100%;height:100%;object-fit:cover;" />`
+                                : `<i class="fas fa-image" style="font-size: 3rem; color: #adb5bd;"></i>`
+                            }
                         </section>
                         <section style="padding: 15px; display: flex; flex-direction: column; flex-grow: 1;">
                             <h3 style="margin: 0 0 10px 0; font-size: 1.2rem; color: #333;">${p.nombre}</h3>
@@ -1366,6 +1379,7 @@ function openAddProductModal() {
             };
 
             const token = localStorage.getItem("access_token");
+            const imgFile = document.getElementById("prodImg").files[0];
             try {
                 const response = await fetch(`${API_CONFIG.BASE_URL}/api/productos/`, {
                     method: "POST",
@@ -1377,8 +1391,28 @@ function openAddProductModal() {
                 });
 
                 if (response.ok) {
+                    const newProduct = await response.json();
+                    const productId = newProduct._id || newProduct.id;
+
+                    if (imgFile && productId) {
+                        const formData = new FormData();
+                        formData.append("files", imgFile);
+                        try {
+                            const imgResponse = await fetch(`${API_CONFIG.BASE_URL}/api/products/${productId}/images`, {
+                                method: "POST",
+                                headers: { Authorization: `Bearer ${token}` },
+                                body: formData
+                            });
+                            if (!imgResponse.ok) {
+                                console.warn("Producto creado, pero hubo un problema al subir la imagen.");
+                            }
+                        } catch (imgErr) {
+                            console.error("Error al subir imagen:", imgErr);
+                        }
+                    }
+
                     alert("¡Producto guardado exitosamente!");
-                    openMyProducts(); // Refresca la vista
+                    openMyProducts();
                 } else {
                     const err = await response.json();
                     alert("Error al guardar: " + (err.detail || "Datos inválidos"));
@@ -1405,12 +1439,25 @@ function openEditProductModal(product) {
         `<option${d === product.region ? ' selected' : ''}>${d}</option>`
     ).join('');
 
+    const currentImgHtml = product.urls_imagenes && product.urls_imagenes.length > 0
+        ? `<img src="${product.urls_imagenes[0]}" alt="${product.nombre}" style="width:100%;height:180px;object-fit:cover;border-radius:10px;display:block;" />`
+        : `<div style="width:100%;height:180px;background:#e9ecef;border-radius:10px;display:flex;justify-content:center;align-items:center;color:#adb5bd;font-size:2.5rem;"><i class="fas fa-image"></i></div>`;
+
     openDashboard(
         "Editar Producto",
         `
             <div class="dashboard-section" style="max-width: 600px; margin: 0 auto; width: 100%;">
                 <form id="editProductForm" class="settings-form">
                     <div style="display:flex;flex-direction:column;gap:15px;">
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                            <label style="font-weight:600; color: #333;">Imagen del Producto</label>
+                            <div id="editImgPreviewWrap">
+                                ${currentImgHtml}
+                            </div>
+                            <input type="file" id="editProdImg" accept="image/jpeg,image/png,image/webp"
+                                style="padding:10px 14px;border:1px dashed #c6701d;border-radius:12px;background:#fafafa;cursor:pointer;color:#666;" />
+                            <small style="color:#888;">Selecciona una imagen para reemplazar la actual. Formatos: JPG, PNG, WEBP · Máx. 5 MB.</small>
+                        </div>
                         <div style="display:flex;flex-direction:column;gap:5px;">
                             <label style="font-weight:600; color: #333;">Nombre del Producto</label>
                             <input type="text" id="editProdName" value="${product.nombre}" required style="padding:12px 14px;border:1px solid #ddd;border-radius:12px;" />
@@ -1462,6 +1509,18 @@ function openEditProductModal(product) {
     document.getElementById("cancelEditProductBtn")?.addEventListener("click", () => openMyProducts());
     document.getElementById("deleteEditProductBtn")?.addEventListener("click", () => deleteProduct(productId));
 
+    // Preview en tiempo real al seleccionar imagen
+    document.getElementById("editProdImg")?.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            document.getElementById("editImgPreviewWrap").innerHTML =
+                `<img src="${ev.target.result}" alt="Preview" style="width:100%;height:180px;object-fit:cover;border-radius:10px;display:block;" />`;
+        };
+        reader.readAsDataURL(file);
+    });
+
     const form = document.getElementById("editProductForm");
     const statusEl = document.getElementById("editProductStatus");
 
@@ -1484,19 +1543,49 @@ function openEditProductModal(product) {
             is_active: document.getElementById("editProdActive").value === "true",
         };
         const token = localStorage.getItem("access_token");
+        const imgFile = document.getElementById("editProdImg").files[0];
         try {
             const response = await fetch(`${API_CONFIG.BASE_URL}/api/productos/${productId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(payload),
             });
-            if (response.ok) {
-                showEditStatus("¡Producto actualizado exitosamente!", true);
-                setTimeout(() => openMyProducts(), 1200);
-            } else {
+            if (!response.ok) {
                 const err = await response.json().catch(() => ({}));
                 showEditStatus(err.detail || "No fue posible actualizar el producto.", false);
+                return;
             }
+
+            if (imgFile) {
+                // PUT reemplaza la imagen existente; POST agrega si no había ninguna
+                const hasExistingImage = product.urls_imagenes && product.urls_imagenes.length > 0;
+                const imgMethod = hasExistingImage ? "PUT" : "POST";
+                const formData = new FormData();
+                if (hasExistingImage) {
+                    formData.append("file", imgFile);   // PUT espera campo "file"
+                } else {
+                    formData.append("files", imgFile);  // POST espera campo "files"
+                }
+                try {
+                    const imgResponse = await fetch(`${API_CONFIG.BASE_URL}/api/products/${productId}/images`, {
+                        method: imgMethod,
+                        headers: { Authorization: `Bearer ${token}` },
+                        body: formData,
+                    });
+                    if (!imgResponse.ok) {
+                        showEditStatus("Datos actualizados, pero hubo un problema al subir la imagen.", false);
+                        setTimeout(() => openMyProducts(), 2000);
+                        return;
+                    }
+                } catch {
+                    showEditStatus("Datos actualizados, pero error de conexión al subir imagen.", false);
+                    setTimeout(() => openMyProducts(), 2000);
+                    return;
+                }
+            }
+
+            showEditStatus("¡Producto actualizado exitosamente!", true);
+            setTimeout(() => openMyProducts(), 1200);
         } catch {
             showEditStatus("Error de conexión con el servidor.", false);
         }
