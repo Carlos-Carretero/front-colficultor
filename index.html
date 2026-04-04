@@ -17,10 +17,13 @@
     <script src="https://www.google.com/recaptcha/api.js?render=6LcTDaQsAAAAAFqnC9Ib3PAPf1Zfcc-YztBQK7lF" async defer></script>
 </head>
 <body>
+    <!-- Navbar móvil -->
     <header class="site-header">
         <nav class="navbar container" aria-label="Navegación principal">
             <a class="brand" href="#" aria-label="Inicio Colficultor">
-                <span class="brand-mark" aria-hidden="true"><i class="fas fa-seedling"></i></span>
+                <span class="brand-mark" aria-hidden="true">
+                    <img src="./img/logo.svg" alt="Logo Colficultor">
+                </span>
                 <span class="brand-text">COLFICULTOR</span>
             </a>
 
@@ -43,6 +46,22 @@
         </nav>
     </header>
 
+    <!-- Navbar escritorio -->
+    <header class="site-header-desktop">
+        <nav class="navbar-desktop container" aria-label="Navegación escritorio">
+            <a class="brand-desktop" href="#" aria-label="Inicio Colficultor">
+                <img src="./img/logo.svg" alt="Logo Colficultor" class="brand-logo-desktop">
+                <span class="brand-text-desktop">COLFICULTOR</span>
+            </a>
+
+            <ul class="nav-links-desktop">
+                <li><a href="#catalogo">Catálogo</a></li>
+                <li><a href="#filtros">Filtros</a></li>
+                <li><a href="#contacto">Contacto</a></li>
+            </ul>
+        </nav>
+    </header>
+
     <main>
         <section class="container_principal">
             <article class="container_1" aria-label="Encabezado principal">
@@ -55,11 +74,9 @@
                 </section>
 
                 <section class="hero-actions">
-                    <section class="Estrella">
-                        <button class="star-btn" aria-label="Favoritos">
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M12 3l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 18l-5.9 3 1.2-6.5L2.5 9.9 9.1 9z"/>
-                            </svg>
+                    <section class="Carrito">
+                        <button class="cart-btn" id="cartBtn" aria-label="Mi carrito">
+                            <i class="fas fa-shopping-cart" aria-hidden="true"></i>
                         </button>
                     </section>
 
@@ -92,7 +109,41 @@
 
                         <label class="catalog-field">
                             <span>Región / Origen</span>
-                            <input id="filterRegion" name="region" type="text" placeholder="Ej. Huila">
+                            <select id="filterRegion" name="region">
+                                <option value="">Todos los departamentos</option>
+                                <option>Amazonas</option>
+                                <option>Antioquia</option>
+                                <option>Arauca</option>
+                                <option>Atlántico</option>
+                                <option>Bolívar</option>
+                                <option>Boyacá</option>
+                                <option>Caldas</option>
+                                <option>Caquetá</option>
+                                <option>Casanare</option>
+                                <option>Cauca</option>
+                                <option>Cesar</option>
+                                <option>Chocó</option>
+                                <option>Córdoba</option>
+                                <option>Cundinamarca</option>
+                                <option>Guainía</option>
+                                <option>Guaviare</option>
+                                <option>Huila</option>
+                                <option>La Guajira</option>
+                                <option>Magdalena</option>
+                                <option>Meta</option>
+                                <option>Nariño</option>
+                                <option>Norte de Santander</option>
+                                <option>Putumayo</option>
+                                <option>Quindío</option>
+                                <option>Risaralda</option>
+                                <option>San Andrés y Providencia</option>
+                                <option>Santander</option>
+                                <option>Sucre</option>
+                                <option>Tolima</option>
+                                <option>Valle del Cauca</option>
+                                <option>Vaupés</option>
+                                <option>Vichada</option>
+                            </select>
                         </label>
 
                         <label class="catalog-field">
