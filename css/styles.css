@@ -868,3 +868,189 @@ footer {
         grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
+
+/* ── Google OAuth: separador visual ──────────────────────────────────────── */
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: #9a8a82;
+    font-size: 0.85rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+/* ── Botón "Continuar con Google" ─────────────────────────────────────────── */
+.btn-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    background: #fff;
+    color: #3c3026;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+
+.btn-google:hover,
+.btn-google:focus-visible {
+    background: #f8f3ef;
+    border-color: #c6701d;
+    box-shadow: 0 0 0 3px rgba(226, 144, 45, 0.12);
+}
+
+.google-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.google-auth-section {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Modal de selección de rol (Google) ───────────────────────────────────── */
+#googleRoleModal .modal_content {
+    max-width: 480px;
+}
+
+#googleRoleModal .titulo h2 {
+    font-size: clamp(1.2rem, 3vw, 1.6rem);
+    margin-bottom: 4px;
+}
+
+.role-subtitle {
+    font-size: 0.9rem;
+    color: #6b5a50;
+    margin-top: 4px;
+}
+
+.google-user-preview {
+    margin-top: 4px;
+}
+
+.google-welcome {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    color: #3c3026;
+}
+
+.google-welcome i {
+    font-size: 1.3rem;
+    color: var(--color-primary);
+}
+
+/* Cards de opción de rol */
+.role-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+}
+
+.role-option {
+    cursor: pointer;
+}
+
+/* Ocultar el radio nativo */
+.role-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.role-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: var(--space-3) var(--space-2);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    background: #faf7f4;
+    transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+    text-align: center;
+}
+
+.role-card i {
+    font-size: 1.8rem;
+    color: var(--color-primary);
+}
+
+.role-card strong {
+    font-size: 1rem;
+    color: var(--text-main);
+}
+
+.role-card small {
+    font-size: 0.8rem;
+    color: #6b5a50;
+    line-height: 1.3;
+}
+
+/* Estado seleccionado */
+.role-option input[type="radio"]:checked + .role-card {
+    border-color: var(--color-primary);
+    background: #fff8f0;
+    box-shadow: 0 0 0 3px rgba(226, 144, 45, 0.15);
+}
+
+.role-option:hover .role-card {
+    border-color: var(--color-primary-dark);
+}
+
+/* Mensaje de error de validación de rol */
+.role-warning {
+    font-size: 0.88rem;
+    color: var(--color-error);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: var(--space-2);
+}
+
+/* Botón submit del modal de rol */
+.btn-role-submit {
+    margin-top: var(--space-3);
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: #fff;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: filter 0.18s;
+}
+
+.btn-role-submit:hover:not(:disabled) {
+    filter: brightness(0.92);
+}
+
+.btn-role-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@media (max-width: 420px) {
+    .role-options {
+        grid-template-columns: 1fr;
+    }
+}

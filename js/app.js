@@ -1089,3 +1089,201 @@ async function openMyStats() {
         `
     );
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTENTICACIÓN CON GOOGLE OAUTH 2.0
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Flujo completo:
+//   1. Usuario hace clic en "Continuar con Google"
+//      → el navegador redirige al backend /api/auth/google/init
+//      → el backend genera el state CSRF y redirige a Google
+//   2. Google autentica y redirige al backend /api/auth/google/callback
+//   3. El backend redirige a la misma página con uno de estos parámetros:
+//      ?token=<jwt>            → usuario existente: login inmediato
+//      ?google_pending=<tok>  → usuario nuevo: pedir rol
+//      ?google_error=<reason> → algo salió mal
+//   4. Este script lee los parámetros al cargar la página y actúa en consecuencia.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Botones Google (login y registro apuntan al mismo endpoint) ────────────
+
+const googleLoginBtn = document.getElementById("googleLoginBtn")
+const googleRegisterBtn = document.getElementById("googleRegisterBtn")
+
+function redirectToGoogleAuth() {
+    // Redirigir al backend; este a su vez redirige a Google
+    window.location.href = `${API_CONFIG.BASE_URL}/api/auth/google/init`
+}
+
+if (googleLoginBtn) {
+    googleLoginBtn.addEventListener("click", redirectToGoogleAuth)
+}
+if (googleRegisterBtn) {
+    googleRegisterBtn.addEventListener("click", redirectToGoogleAuth)
+}
+
+// ── Modal de selección de rol ──────────────────────────────────────────────
+
+const googleRoleModal   = document.getElementById("googleRoleModal")
+const googleRoleForm    = document.getElementById("googleRoleForm")
+const googleRoleError   = document.getElementById("googleRoleError")
+const googleUserPreview = document.getElementById("googleUserPreview")
+
+/**
+ * Muestra el modal de selección de rol para un usuario nuevo de Google.
+ * @param {string} tempToken - Token temporal recibido por URL.
+ * @param {string|null} name  - Nombre del usuario (decorativo, puede ser null).
+ */
+function showGoogleRoleModal(tempToken, name) {
+    if (!googleRoleModal) return
+
+    if (googleUserPreview && name) {
+        googleUserPreview.innerHTML = `
+            <p class="google-welcome">
+                <i class="fas fa-user-circle" aria-hidden="true"></i>
+                Bienvenido, <strong>${escapeHtml(name)}</strong>
+            </p>`
+    }
+
+    googleRoleModal.classList.add("active")
+
+    googleRoleForm.onsubmit = async (e) => {
+        e.preventDefault()
+        const selected = googleRoleForm.querySelector('input[name="googleRole"]:checked')
+
+        if (!selected) {
+            if (googleRoleError) googleRoleError.hidden = false
+            return
+        }
+        if (googleRoleError) googleRoleError.hidden = true
+
+        const submitBtn = document.getElementById("googleRoleSubmitBtn")
+        if (submitBtn) {
+            submitBtn.disabled = true
+            submitBtn.textContent = "Guardando..."
+        }
+
+        await completeGoogleRegistration(tempToken, selected.value)
+
+        if (submitBtn) {
+            submitBtn.disabled = false
+            submitBtn.textContent = "Continuar"
+        }
+    }
+}
+
+/**
+ * Llama al endpoint /api/auth/google/complete con el token temporal y el rol elegido.
+ * Si tiene éxito, guarda el JWT y carga la sesión del usuario.
+ */
+async function completeGoogleRegistration(tempToken, role) {
+    try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/google/complete`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ temp_token: tempToken, role }),
+        })
+
+        if (response.ok) {
+            const data = await response.json()
+            localStorage.setItem("access_token", data.access_token)
+
+            googleRoleModal.classList.remove("active")
+            cleanGoogleParams()
+
+            const authenticated = await applyAuthenticatedState()
+            if (authenticated) {
+                alert("¡Registro exitoso! Bienvenido a Colficultor.")
+            } else {
+                alert("Registro completado. Por favor inicia sesión.")
+            }
+        } else {
+            const err = await response.json()
+            alert(`Error al completar el registro: ${err.detail || "Inténtalo de nuevo."}`)
+        }
+    } catch (error) {
+        console.error("Error al completar registro Google:", error)
+        alert("Ocurrió un error de conexión. Verifica que el servidor esté corriendo.")
+    }
+}
+
+// ── Mensajes de error de Google ────────────────────────────────────────────
+
+const GOOGLE_ERROR_MESSAGES = {
+    access_denied:    "Cancelaste el inicio de sesión con Google.",
+    invalid_state:    "La solicitud de autenticación expiró. Por favor inténtalo de nuevo.",
+    exchange_failed:  "No se pudo comunicar con Google. Inténtalo de nuevo.",
+    missing_info:     "Google no proporcionó la información necesaria. Inténtalo de nuevo.",
+    account_inactive: "Tu cuenta está inactiva. Contacta al soporte.",
+    invalid_request:  "Solicitud de autenticación inválida. Inténtalo de nuevo.",
+}
+
+function getGoogleErrorMessage(code) {
+    return GOOGLE_ERROR_MESSAGES[code] || "Ocurrió un error al iniciar sesión con Google."
+}
+
+// ── Utilidad: escapar HTML para evitar XSS en el nombre del usuario ────────
+
+function escapeHtml(text) {
+    const div = document.createElement("div")
+    div.appendChild(document.createTextNode(String(text)))
+    return div.innerHTML
+}
+
+// ── Limpiar parámetros Google de la URL (sin recargar la página) ──────────
+
+function cleanGoogleParams() {
+    const url = new URL(window.location.href)
+    url.searchParams.delete("token")
+    url.searchParams.delete("google_pending")
+    url.searchParams.delete("google_error")
+    window.history.replaceState({}, document.title, url.toString())
+}
+
+// ── Inicialización: leer parámetros de URL al cargar la página ─────────────
+//
+// Este bloque se ejecuta al inicio. Detecta si el backend redirigió aquí
+// con algún parámetro de Google OAuth y actúa en consecuencia.
+
+;(async function handleGoogleOAuthCallback() {
+    const params = new URLSearchParams(window.location.search)
+
+    const token         = params.get("token")
+    const googlePending = params.get("google_pending")
+    const googleError   = params.get("google_error")
+
+    console.log("[Google OAuth] Parámetros detectados:", {
+        token: token ? "PRESENTE (login directo)" : null,
+        googlePending: googlePending ? "PRESENTE (selección de rol)" : null,
+        googleError: googleError || null,
+    })
+
+    if (token) {
+        // — Usuario existente autenticado por Google → login inmediato —
+        console.log("[Google OAuth] Iniciando sesión con token existente...")
+        localStorage.setItem("access_token", token)
+        cleanGoogleParams()
+        const authenticated = await applyAuthenticatedState()
+        if (!authenticated) {
+            localStorage.removeItem("access_token")
+            alert("No se pudo cargar tu perfil. Por favor intenta de nuevo.")
+        }
+
+    } else if (googlePending) {
+        // — Usuario nuevo → mostrar modal de selección de rol —
+        console.log("[Google OAuth] Usuario nuevo → mostrando modal de rol")
+        cleanGoogleParams()
+        showGoogleRoleModal(googlePending, null)
+        console.log("[Google OAuth] Modal de rol activado. Elemento:", googleRoleModal)
+
+    } else if (googleError) {
+        // — Error en el flujo OAuth → mostrar mensaje y abrir login —
+        console.error("[Google OAuth] Error recibido:", googleError)
+        cleanGoogleParams()
+        alert(getGoogleErrorMessage(googleError))
+        if (modal) modal.classList.add("active")
+    }
+})()
