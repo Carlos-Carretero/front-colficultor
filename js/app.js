@@ -2067,8 +2067,13 @@ async function openMySales() {
         }
 
         listEl.innerHTML = orders.map(order => {
-            const nextStates = NEXT_STATES[order.estado] || []
-            const itemsText = order.items.map(i => `${i.nombreSnapshot} × ${i.cantidad}`).join(" · ")
+            const nextStates   = NEXT_STATES[order.estado] || []
+            // Usar solo los items y el subtotal propios del caficultor
+            const myItems      = order.caficultor_items || []
+            const mySubtotal   = order.caficultor_subtotal ?? 0
+            const itemsText    = myItems.length
+                ? myItems.map(i => `${i.nombreSnapshot} × ${i.cantidad}`).join(" · ")
+                : "Sin productos propios en esta orden"
             const stateOptions = nextStates.map(s =>
                 `<option value="${s.value}">${s.label}</option>`
             ).join("")
@@ -2085,7 +2090,7 @@ async function openMySales() {
                 </div>
                 <p class="my-order-items-preview">${itemsText}</p>
                 <div class="my-order-card-footer">
-                    <span class="my-order-total">${formatCop(Number(order.total || 0))}</span>
+                    <span class="my-order-total">${formatCop(mySubtotal)}</span>
                     ${hasActions ? `
                     <div class="sale-state-actions">
                         <select class="sale-next-state" style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-family:inherit;font-size:0.85rem;color:#333;cursor:pointer;">
