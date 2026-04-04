@@ -1236,7 +1236,7 @@ async function openMyProducts() {
                 productsGrid.innerHTML = products.map(p => `
                     <article style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; opacity: ${p.is_active ? '1' : '0.6'}; position: relative;">
                         ${!p.is_active ? '<div style="position:absolute; top:10px; right:10px; background:red; color:white; padding:2px 8px; border-radius:12px; font-size:0.7rem; font-weight:bold;">Inactivo</div>' : ''}
-                        <section style="width: 100%; height: 160px; background: #e9ecef; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+                        <section style="width: 100%; aspect-ratio: 1 / 1; background: #e9ecef; display: flex; justify-content: center; align-items: center; overflow: hidden;">
                             ${p.urls_imagenes && p.urls_imagenes.length > 0
                                 ? `<img src="${p.urls_imagenes[0]}" alt="${p.nombre}" style="width:100%;height:100%;object-fit:cover;" />`
                                 : `<i class="fas fa-image" style="font-size: 3rem; color: #adb5bd;"></i>`
