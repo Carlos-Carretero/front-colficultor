@@ -84,115 +84,57 @@
                     <i class="fas fa-filter" aria-hidden="true"></i> FILTROS DE CAFÉ
                 </button>
                 <div class="tags-wrapper" id="tagsWrapper">
-                    <section class="tag_1"><button type="button">ARÁBICO</button></section>
-                    <section class="tag_2"><button type="button">BARBÓN</button></section>
-                    <section class="tag_3"><button type="button">LIBÉRICA</button></section>
-                    <section class="tag_4"><button type="button">CASTILLA</button></section>
-                    <section class="tag_5"><button type="button">CATURRA</button></section>
+                    <form id="catalogFiltersForm" class="catalog-filters-form">
+                        <label class="catalog-field">
+                            <span>Buscar</span>
+                            <input id="filterQ" name="q" type="text" placeholder="Nombre del café">
+                        </label>
+
+                        <label class="catalog-field">
+                            <span>Región / Origen</span>
+                            <input id="filterRegion" name="region" type="text" placeholder="Ej. Huila">
+                        </label>
+
+                        <label class="catalog-field">
+                            <span>Precio mínimo</span>
+                            <input id="filterMinPrecio" name="minPrecio" type="number" min="0" step="1000" placeholder="0">
+                        </label>
+
+                        <label class="catalog-field">
+                            <span>Precio máximo</span>
+                            <input id="filterMaxPrecio" name="maxPrecio" type="number" min="0" step="1000" placeholder="200000">
+                        </label>
+
+                        <label class="catalog-field">
+                            <span>Orden</span>
+                            <select id="filterSort" name="sort">
+                                <option value="recientes">Más recientes</option>
+                                <option value="precio_asc">Precio menor a mayor</option>
+                                <option value="precio_desc">Precio mayor a menor</option>
+                            </select>
+                        </label>
+
+                        <div class="catalog-filter-actions">
+                            <button id="applyCatalogFiltersBtn" type="submit">Aplicar filtros</button>
+                            <button id="clearCatalogFiltersBtn" type="button" class="secondary">Limpiar</button>
+                        </div>
+                    </form>
                 </div>
             </article>
 
             <article class="container_3" id="catalogo">
                 <section class="productos" aria-label="Catálogo de productos">
-                    <article class="producto_1">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/05/ab/b1/05abb1beb47ac34d08d9105297a78f61.jpg" alt="Café de origen en grano">
-                        </section>
-                        <section class="nombre">LOREM</section>
-                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
-                        <section class="compra">
-                            <article><span class="precio">$50.000</span></article>
-                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
-                        </section>
-                    </article>
-
-                    <article class="producto_2">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/22/16/ff/2216ff7953840a5121a75d8092d05a7b.jpg" alt="Café tostado artesanal">
-                        </section>
-                        <section class="nombre">LOREM</section>
-                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
-                        <section class="compra">
-                            <article><span class="precio">$50.000</span></article>
-                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
-                        </section>
-                    </article>
-
-                    <article class="producto_3">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/87/9c/0e/879c0eced93877996d5f6124e77deb92.jpg" alt="Café en presentación premium">
-                        </section>
-                        <section class="nombre">LOREM</section>
-                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
-                        <section class="compra">
-                            <article><span class="precio">$50.000</span></article>
-                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
-                        </section>
-                    </article>
-
-                    <article class="producto_4">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/736x/18/8b/a8/188ba8e1b852e7dc69d496d94aedeb62.jpg" alt="Empaque de café listo para venta">
-                        </section>
-                        <section class="nombre">LOREM</section>
-                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
-                        <section class="compra">
-                            <article><span class="precio">$50.000</span></article>
-                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
-                        </section>
-                    </article>
-
-                    <article class="producto_5">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/0c/9b/fa/0c9bfa80d5ca72cd1a4eec6dccec4a78.jpg" alt="Café especial para compradores">
-                        </section>
-                        <section class="nombre">LOREM</section>
-                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
-                        <section class="compra">
-                            <article><span class="precio">$50.000</span></article>
-                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
-                        </section>
-                    </article>
-
-                    <article class="producto_6">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/5f/26/94/5f269416f5d078440702cc53d6bcad2a.jpg" alt="Café en bolsa sellada">
-                        </section>
-                        <section class="nombre">LOREM</section>
-                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
-                        <section class="compra">
-                            <article><span class="precio">$50.000</span></article>
-                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
-                        </section>
-                    </article>
-
-                    <article class="producto_7">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/736x/a0/7f/38/a07f38e0343e2a73b79a3aadd7c7c540.jpg" alt="Café de finca colombiana">
-                        </section>
-                        <section class="nombre">LOREM</section>
-                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
-                        <section class="compra">
-                            <article><span class="precio">$50.000</span></article>
-                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
-                        </section>
-                    </article>
-
-                    <article class="producto_8">
-                        <section class="imagen">
-                            <img src="https://i.pinimg.com/1200x/18/b4/47/18b447d58e3f0bdd5802ccd18e9f765e.jpg" alt="Café tostión media">
-                        </section>
-                        <section class="nombre">LOREM</section>
-                        <section class="descripcion">lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem lorem</section>
-                        <section class="compra">
-                            <article><span class="precio">$50.000</span></article>
-                            <article><button class="btn-comprar" type="button">COMPRAR</button></article>
-                        </section>
-                    </article>
+                    <div id="catalogStatus" class="catalog-status">Cargando catálogo...</div>
+                    <div id="catalogResults" class="catalog-grid" aria-live="polite"></div>
                 </section>
 
-                <section class="ver_mas">
-                    <button id="showMoreBtn" type="button" aria-label="Ver más productos">
+                <section class="catalog-pagination">
+                    <button id="catalogPrevBtn" type="button" aria-label="Página anterior">Anterior</button>
+                    <p id="catalogPageInfo">Página 1</p>
+                    <button id="catalogNextBtn" type="button" aria-label="Página siguiente">Siguiente</button>
+                </section>
+                <section class="ver_mas hidden">
+                    <button id="showMoreBtn" type="button" aria-label="Ver más productos" disabled>
                         <i class="fas fa-chevron-down" aria-hidden="true"></i>
                     </button>
                 </section>

@@ -240,9 +240,245 @@ recoveryForm.addEventListener("submit", async (e) => {
     }
 });
 
-// Botón Mostrar Más Productos (estructura sin funcionalidad por ahora)
+// Botón Mostrar Más Productos (oculto por ahora)
 const showMoreBtn = document.getElementById("showMoreBtn");
-// Sin event listener por ahora
+
+const catalogFiltersForm = document.getElementById("catalogFiltersForm")
+const clearCatalogFiltersBtn = document.getElementById("clearCatalogFiltersBtn")
+const filterSort = document.getElementById("filterSort")
+const catalogResults = document.getElementById("catalogResults")
+const catalogStatus = document.getElementById("catalogStatus")
+const catalogPrevBtn = document.getElementById("catalogPrevBtn")
+const catalogNextBtn = document.getElementById("catalogNextBtn")
+const catalogPageInfo = document.getElementById("catalogPageInfo")
+
+const catalogState = {
+    page: 1,
+    limit: 8,
+    total: 0,
+    requestId: 0,
+}
+
+function formatCop(value) {
+    return new Intl.NumberFormat("es-CO", {
+        style: "currency",
+        currency: "COP",
+        minimumFractionDigits: 0,
+    }).format(value)
+}
+
+function setCatalogStatus(message, kind = "info") {
+    if (!catalogStatus) return
+    catalogStatus.textContent = message
+    catalogStatus.classList.remove("hidden", "is-error", "is-success")
+    if (kind === "error") catalogStatus.classList.add("is-error")
+    if (kind === "success") catalogStatus.classList.add("is-success")
+}
+
+function getCatalogFilters() {
+    return {
+        q: document.getElementById("filterQ")?.value?.trim() || "",
+        region: document.getElementById("filterRegion")?.value?.trim() || "",
+        minPrecio: document.getElementById("filterMinPrecio")?.value?.trim() || "",
+        maxPrecio: document.getElementById("filterMaxPrecio")?.value?.trim() || "",
+        sort: filterSort?.value || "recientes",
+    }
+}
+
+function buildCatalogUrl() {
+    const filters = getCatalogFilters()
+    const params = new URLSearchParams()
+
+    if (filters.q) params.append("q", filters.q)
+    if (filters.region) params.append("region", filters.region)
+    if (filters.minPrecio) params.append("minPrecio", filters.minPrecio)
+    if (filters.maxPrecio) params.append("maxPrecio", filters.maxPrecio)
+    params.append("sort", filters.sort)
+    params.append("page", String(catalogState.page))
+    params.append("limit", String(catalogState.limit))
+
+    return `${API_CONFIG.BASE_URL}/api/productos?${params.toString()}`
+}
+
+function renderCatalogItems(items) {
+    if (!catalogResults) return
+    catalogResults.innerHTML = items.map((product) => `
+        <article class="catalog-card">
+            <section class="catalog-card-header">
+                <p class="catalog-region">${product.region || product.origen || "Sin región"}</p>
+                <p class="catalog-stock">Stock: ${product.stock ?? 0}</p>
+            </section>
+            <section class="catalog-card-body">
+                <h3>${product.nombre}</h3>
+                <p>${product.descripcion || "Sin descripción"}</p>
+            </section>
+            <section class="catalog-card-footer">
+                <span class="catalog-price">${formatCop(Number(product.precio || 0))}</span>
+                <button type="button" class="btn-comprar catalog-add-btn" data-product-id="${product._id}">
+                    Agregar
+                </button>
+            </section>
+        </article>
+    `).join("")
+}
+
+function updateCatalogPagination() {
+    if (!catalogPageInfo || !catalogPrevBtn || !catalogNextBtn) return
+    const totalPages = Math.max(1, Math.ceil(catalogState.total / catalogState.limit))
+    catalogPageInfo.textContent = `Página ${catalogState.page} de ${totalPages}`
+    catalogPrevBtn.disabled = catalogState.page <= 1
+    catalogNextBtn.disabled = catalogState.page >= totalPages
+}
+
+async function addToCartFromCatalog(productId) {
+    const token = localStorage.getItem("access_token")
+    if (!token) {
+        alert("Debes iniciar sesión como comprador para agregar productos al carrito.")
+        return
+    }
+
+    try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/carrito/items`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ productId, cantidad: 1 }),
+        })
+
+        if (response.ok) {
+            setCatalogStatus("Producto agregado al carrito.", "success")
+            return
+        }
+
+        const err = await response.json().catch(() => ({}))
+        if (response.status === 401) {
+            setCatalogStatus("Tu sesión no es válida. Inicia sesión nuevamente.", "error")
+            return
+        }
+        if (response.status === 403) {
+            setCatalogStatus("Solo usuarios con rol comprador pueden usar el carrito.", "error")
+            return
+        }
+        if (response.status === 404) {
+            setCatalogStatus(err.detail || "Producto no encontrado.", "error")
+            return
+        }
+        setCatalogStatus(err.detail || "No fue posible agregar el producto al carrito.", "error")
+    } catch (error) {
+        console.error("Error agregando al carrito:", error)
+        setCatalogStatus("Error de conexión al agregar al carrito.", "error")
+    }
+}
+
+async function loadCatalog({ resetPage = false } = {}) {
+    if (!catalogResults || !catalogStatus) return
+    if (resetPage) catalogState.page = 1
+
+    const filters = getCatalogFilters()
+    const minPrecio = filters.minPrecio ? Number(filters.minPrecio) : null
+    const maxPrecio = filters.maxPrecio ? Number(filters.maxPrecio) : null
+    if (minPrecio !== null && maxPrecio !== null && minPrecio > maxPrecio) {
+        catalogResults.innerHTML = ""
+        setCatalogStatus("minPrecio no puede ser mayor que maxPrecio.", "error")
+        catalogState.total = 0
+        updateCatalogPagination()
+        return
+    }
+
+    const currentRequestId = ++catalogState.requestId
+    setCatalogStatus("Cargando catálogo...")
+    catalogResults.innerHTML = ""
+
+    try {
+        const response = await fetch(buildCatalogUrl())
+        if (currentRequestId !== catalogState.requestId) return
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}))
+            setCatalogStatus(err.detail || "No se pudo cargar el catálogo.", "error")
+            catalogState.total = 0
+            updateCatalogPagination()
+            return
+        }
+
+        const data = await response.json()
+        const items = Array.isArray(data.items) ? data.items : []
+        catalogState.total = Number(data.total || 0)
+        catalogState.page = Number(data.page || catalogState.page)
+        catalogState.limit = Number(data.limit || catalogState.limit)
+
+        if (!items.length) {
+            catalogResults.innerHTML = ""
+            setCatalogStatus("No se encontraron productos con los filtros seleccionados.")
+            updateCatalogPagination()
+            return
+        }
+
+        renderCatalogItems(items)
+        catalogStatus.classList.add("hidden")
+        updateCatalogPagination()
+    } catch (error) {
+        if (currentRequestId !== catalogState.requestId) return
+        console.error("Error cargando catálogo:", error)
+        catalogResults.innerHTML = ""
+        catalogState.total = 0
+        setCatalogStatus("Error de conexión al cargar catálogo.", "error")
+        updateCatalogPagination()
+    }
+}
+
+if (catalogFiltersForm) {
+    catalogFiltersForm.addEventListener("submit", async (event) => {
+        event.preventDefault()
+        await loadCatalog({ resetPage: true })
+    })
+}
+
+if (clearCatalogFiltersBtn) {
+    clearCatalogFiltersBtn.addEventListener("click", async () => {
+        if (!catalogFiltersForm) return
+        catalogFiltersForm.reset()
+        if (filterSort) filterSort.value = "recientes"
+        await loadCatalog({ resetPage: true })
+    })
+}
+
+if (filterSort) {
+    filterSort.addEventListener("change", async () => {
+        await loadCatalog({ resetPage: true })
+    })
+}
+
+if (catalogPrevBtn) {
+    catalogPrevBtn.addEventListener("click", async () => {
+        if (catalogState.page <= 1) return
+        catalogState.page -= 1
+        await loadCatalog()
+    })
+}
+
+if (catalogNextBtn) {
+    catalogNextBtn.addEventListener("click", async () => {
+        const totalPages = Math.max(1, Math.ceil(catalogState.total / catalogState.limit))
+        if (catalogState.page >= totalPages) return
+        catalogState.page += 1
+        await loadCatalog()
+    })
+}
+
+if (catalogResults) {
+    catalogResults.addEventListener("click", async (event) => {
+        const target = event.target
+        if (!(target instanceof Element)) return
+        const addBtn = target.closest(".catalog-add-btn")
+        if (!addBtn) return
+        const productId = addBtn.dataset.productId
+        if (!productId) return
+        await addToCartFromCatalog(productId)
+    })
+}
 
 async function getCurrentUser() {
     const token = localStorage.getItem("access_token");
@@ -290,7 +526,7 @@ function buildMenuItems(role) {
 
     if (role === "comprador") {
         return [
-            { label: "Mis compras", action: () => openPlaceholder("Mis compras", "Revisa tus compras y órdenes recientes aquí.") },
+            { label: "Mi carrito", action: openBuyerCart },
             { label: "Favoritos", action: () => openPlaceholder("Favoritos", "Tus productos favoritos aparecerán en este espacio.") },
             ...common,
         ];
@@ -401,6 +637,246 @@ function openPlaceholder(title, message) {
             </div>
         `
     );
+}
+
+async function openBuyerCart() {
+    if (!currentUser || currentUser.role !== "comprador") {
+        openPlaceholder("Mi carrito", "Solo los usuarios comprador pueden gestionar carrito y órdenes.")
+        return
+    }
+
+    openDashboard(
+        "Mi carrito",
+        `
+            <div class="buyer-cart-panel" id="buyerCartPanel">
+                <div class="buyer-cart-status" id="buyerCartStatus">Cargando carrito...</div>
+                <div class="buyer-cart-list" id="buyerCartList"></div>
+                <div class="buyer-cart-summary" id="buyerCartSummary">
+                    <p class="buyer-cart-total-label">Total</p>
+                    <p class="buyer-cart-total-value" id="buyerCartTotal">$0</p>
+                    <button type="button" class="dashboard-action-btn" id="buyerCartOrderBtn">Confirmar orden</button>
+                </div>
+            </div>
+        `
+    )
+
+    const token = localStorage.getItem("access_token")
+    const panel = document.getElementById("buyerCartPanel")
+    const statusEl = document.getElementById("buyerCartStatus")
+    const listEl = document.getElementById("buyerCartList")
+    const totalEl = document.getElementById("buyerCartTotal")
+    const orderBtn = document.getElementById("buyerCartOrderBtn")
+    let inFlight = false
+
+    if (!panel || !statusEl || !listEl || !totalEl || !orderBtn) return
+
+    if (!token) {
+        statusEl.textContent = "No hay sesión activa. Inicia sesión para usar el carrito."
+        statusEl.classList.add("is-error")
+        orderBtn.disabled = true
+        return
+    }
+
+    function setCartStatus(message, kind = "info") {
+        statusEl.textContent = message
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error") statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    function hideCartStatus() {
+        statusEl.classList.add("hidden")
+        statusEl.classList.remove("is-error", "is-success")
+    }
+
+    function renderCart(cart) {
+        const items = Array.isArray(cart.items) ? cart.items : []
+        if (!items.length) {
+            listEl.innerHTML = `
+                <article class="buyer-cart-empty">
+                    <p>Tu carrito está vacío.</p>
+                    <p>Agrega productos desde el catálogo para crear una orden.</p>
+                </article>
+            `
+            totalEl.textContent = formatCop(0)
+            orderBtn.disabled = true
+            return
+        }
+
+        listEl.innerHTML = items.map((item) => {
+            const canDecrease = Number(item.cantidad) > 1
+            const nextDown = canDecrease ? Number(item.cantidad) - 1 : 1
+            const nextUp = Number(item.cantidad) + 1
+            return `
+                <article class="buyer-cart-item">
+                    <div class="buyer-cart-item-main">
+                        <h3>${item.nombre}</h3>
+                        <p>Precio: ${formatCop(Number(item.precioSnapshot || 0))}</p>
+                        <p>Subtotal: ${formatCop(Number(item.subtotal || 0))}</p>
+                    </div>
+                    <div class="buyer-cart-item-actions">
+                        <div class="buyer-cart-qty">
+                            <button type="button" data-action="decrease" data-product-id="${item.productId}" data-next-qty="${nextDown}" ${canDecrease ? "" : "disabled"}>-</button>
+                            <span>${item.cantidad}</span>
+                            <button type="button" data-action="increase" data-product-id="${item.productId}" data-next-qty="${nextUp}">+</button>
+                        </div>
+                        <button type="button" class="buyer-cart-remove-btn" data-action="remove" data-product-id="${item.productId}">
+                            Remover
+                        </button>
+                    </div>
+                </article>
+            `
+        }).join("")
+
+        totalEl.textContent = formatCop(Number(cart.total || 0))
+        orderBtn.disabled = false
+    }
+
+    async function authRequest(path, { method = "GET", body = null } = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        const options = { method, headers }
+        if (body !== null) {
+            headers["Content-Type"] = "application/json"
+            options.body = JSON.stringify(body)
+        }
+        return fetch(`${API_CONFIG.BASE_URL}${path}`, options)
+    }
+
+    async function loadCart({ message = "", kind = "info" } = {}) {
+        if (inFlight) return
+        inFlight = true
+        setCartStatus("Cargando carrito...")
+        orderBtn.disabled = true
+
+        try {
+            const response = await authRequest("/api/carrito")
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}))
+                if (response.status === 401) {
+                    setCartStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                } else if (response.status === 403) {
+                    setCartStatus("Tu usuario no tiene permisos para carrito.", "error")
+                } else {
+                    setCartStatus(err.detail || "No fue posible cargar el carrito.", "error")
+                }
+                listEl.innerHTML = ""
+                totalEl.textContent = formatCop(0)
+                orderBtn.disabled = true
+                return
+            }
+
+            const cart = await response.json()
+            renderCart(cart)
+            if (message) {
+                setCartStatus(message, kind)
+            } else {
+                hideCartStatus()
+            }
+        } catch (error) {
+            console.error("Error cargando carrito:", error)
+            listEl.innerHTML = ""
+            totalEl.textContent = formatCop(0)
+            setCartStatus("Error de conexión al cargar carrito.", "error")
+            orderBtn.disabled = true
+        } finally {
+            inFlight = false
+        }
+    }
+
+    panel.addEventListener("click", async (event) => {
+        const target = event.target
+        if (!(target instanceof Element)) return
+
+        const actionBtn = target.closest("[data-action]")
+        if (!actionBtn || inFlight) return
+
+        const action = actionBtn.dataset.action
+        const productId = actionBtn.dataset.productId
+        if (!action || !productId) return
+
+        try {
+            inFlight = true
+            setCartStatus("Actualizando carrito...")
+            let response
+
+            if (action === "remove") {
+                response = await authRequest(`/api/carrito/items/${encodeURIComponent(productId)}`, {
+                    method: "DELETE",
+                })
+            } else if (action === "increase" || action === "decrease") {
+                const nextQty = Number(actionBtn.dataset.nextQty || 1)
+                response = await authRequest(`/api/carrito/items/${encodeURIComponent(productId)}`, {
+                    method: "PUT",
+                    body: { cantidad: Math.max(1, nextQty) },
+                })
+            } else {
+                return
+            }
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}))
+                if (response.status === 401) {
+                    setCartStatus("Sesión no válida. Inicia sesión nuevamente.", "error")
+                } else if (response.status === 404) {
+                    setCartStatus(err.detail || "Producto no encontrado en carrito.", "error")
+                } else if (response.status === 422) {
+                    setCartStatus(err.detail || "Cantidad inválida para el carrito.", "error")
+                } else {
+                    setCartStatus(err.detail || "No fue posible actualizar el carrito.", "error")
+                }
+                return
+            }
+
+            const updatedCart = await response.json()
+            renderCart(updatedCart)
+            setCartStatus("Carrito actualizado.", "success")
+        } catch (error) {
+            console.error("Error actualizando carrito:", error)
+            setCartStatus("Error de conexión al actualizar carrito.", "error")
+        } finally {
+            inFlight = false
+        }
+    })
+
+    orderBtn.addEventListener("click", async () => {
+        if (inFlight) return
+        try {
+            inFlight = true
+            orderBtn.disabled = true
+            setCartStatus("Creando orden...")
+
+            const response = await authRequest("/api/ordenes", { method: "POST" })
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}))
+                if (response.status === 401) {
+                    setCartStatus("Sesión no válida. Inicia sesión nuevamente.", "error")
+                } else if (response.status === 403) {
+                    setCartStatus("Tu usuario no tiene permisos para crear órdenes.", "error")
+                } else if (response.status === 409) {
+                    setCartStatus(err.detail || "Stock insuficiente para completar la orden.", "error")
+                } else if (response.status === 422) {
+                    setCartStatus(err.detail || "No se puede crear la orden con el carrito actual.", "error")
+                } else {
+                    setCartStatus(err.detail || "No fue posible crear la orden.", "error")
+                }
+                return
+            }
+
+            const order = await response.json()
+            await loadCart({
+                message: `Orden creada: ${order._id || order.id}. Estado: ${order.estado}.`,
+                kind: "success",
+            })
+        } catch (error) {
+            console.error("Error creando orden:", error)
+            setCartStatus("Error de conexión al crear la orden.", "error")
+        } finally {
+            inFlight = false
+            orderBtn.disabled = false
+        }
+    })
+
+    await loadCart()
 }
 
 function openProfile() {
@@ -693,6 +1169,9 @@ document.addEventListener("click", (event) => {
 });
 
 window.addEventListener("load", applyAuthenticatedState);
+window.addEventListener("load", () => {
+    loadCatalog({ resetPage: true })
+});
 
 async function openMyProducts() {
     openDashboard(
