@@ -537,6 +537,7 @@ function buildMenuItems(role) {
 
     if (role === "comprador") {
         return [
+            { label: "Mis pedidos", action: openMyOrders },
             ...common,
         ];
     }
@@ -888,6 +889,381 @@ async function openBuyerCart() {
     await loadCart()
 }
 
+// ── Handler redirect PayU sandbox ──────────────────────────────
+async function handlePayuRedirectIfPresent() {
+    const params = new URLSearchParams(window.location.search)
+    const transactionState = params.get("transactionState")
+    if (!transactionState) return
+
+    // Limpiar params de la URL sin recargar
+    const cleanUrl = window.location.pathname
+    window.history.replaceState({}, "", cleanUrl)
+
+    const referenceCode = params.get("referenceCode") || ""
+    const orderId       = params.get("extra1") || ""
+    const txValue       = params.get("TX_VALUE") || "0"
+    const currency      = params.get("currency") || "COP"
+    const message       = params.get("message") || ""
+
+    // Esperar a que el usuario esté autenticado (applyAuthenticatedState puede ser async)
+    await new Promise(r => setTimeout(r, 800))
+
+    const token = localStorage.getItem("access_token")
+    if (!token || !orderId || !referenceCode) return
+
+    // Registrar el resultado en el backend
+    try {
+        await fetch(`${API_CONFIG.BASE_URL}/api/pagos/confirmar-redireccion`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ transactionState, referenceCode, orderId, TX_VALUE: txValue, currency }),
+        })
+    } catch (e) {
+        console.error("Error confirmando redirect PayU:", e)
+    }
+
+    // Mostrar resultado al usuario
+    const stateMap = { "4": "approved", "6": "rejected", "5": "rejected", "104": "rejected", "7": "pending" }
+    const kind = stateMap[transactionState] || "pending"
+    const title = kind === "approved" ? "¡Pago aprobado!" : kind === "rejected" ? "Pago rechazado" : "Pago en revisión"
+    const detail = kind === "approved"
+        ? "Tu orden ha sido confirmada. Puedes ver el estado en <b>Mis pedidos</b>."
+        : kind === "rejected"
+        ? `El pago no fue procesado. ${message || "Intenta nuevamente."}`
+        : "El pago está en revisión. Recibirás confirmación pronto."
+
+    openDashboard(title, `
+        <div style="max-width:480px;margin:0 auto;text-align:center;padding:32px 16px;">
+            <div style="font-size:3.5rem;margin-bottom:16px;">
+                ${kind === "approved" ? "✅" : kind === "rejected" ? "❌" : "⏳"}
+            </div>
+            <h2 style="color:${kind === "approved" ? "#0f5c2b" : kind === "rejected" ? "#8e2d1c" : "#7a4800"};margin-bottom:12px;">${title}</h2>
+            <p style="color:#555;line-height:1.6;">${detail}</p>
+            <p style="font-size:0.8rem;color:#aaa;margin-top:8px;">Ref: ${referenceCode}</p>
+            <button type="button" class="dashboard-action-btn" id="payuResultBtn"
+                    style="margin-top:24px;background:#c6701d;color:white;width:100%;justify-content:center;">
+                Ver mis pedidos
+            </button>
+        </div>
+    `)
+    document.getElementById("payuResultBtn")?.addEventListener("click", openMyOrders)
+}
+
+// ── Helpers de órdenes ─────────────────────────────────────────
+const ORDER_ESTADO_MAP = {
+    PENDIENTE_PAGO:  { label: "Pendiente de pago", color: "#7a4800", bg: "#fdf3e7" },
+    PAGADA:          { label: "Pagada",             color: "#0f5c2b", bg: "#effcf4" },
+    PAGO_FALLIDO:    { label: "Pago fallido",       color: "#8e2d1c", bg: "#fff2ef" },
+    EN_PREPARACION:  { label: "En preparación",     color: "#1a5c8e", bg: "#e8f4ff" },
+    ENVIADA:         { label: "Enviada",             color: "#5b2d8e", bg: "#f3e8ff" },
+    ENTREGADA:       { label: "Entregada",           color: "#0f5c2b", bg: "#d4f5e2" },
+    CANCELADA:       { label: "Cancelada",           color: "#555",    bg: "#f0f0f0" },
+}
+
+function estadoBadge(estado) {
+    const e = ORDER_ESTADO_MAP[estado] || { label: estado, color: "#555", bg: "#f0f0f0" }
+    return `<span class="order-estado-badge" style="color:${e.color};background:${e.bg};">${e.label}</span>`
+}
+
+function makeOrderAuthFetch(token) {
+    return function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        const options = { method: opts.method || "GET", headers }
+        if (opts.body) {
+            headers["Content-Type"] = "application/json"
+            options.body = JSON.stringify(opts.body)
+        }
+        return fetch(`${API_CONFIG.BASE_URL}${path}`, options)
+    }
+}
+
+// ── Mis pedidos (lista) ─────────────────────────────────────────
+async function openMyOrders() {
+    if (!currentUser || currentUser.role !== "comprador") {
+        openPlaceholder("Mis pedidos", "Solo los compradores pueden ver sus pedidos.")
+        return
+    }
+
+    openDashboard("Mis pedidos", `
+        <div class="my-orders-panel" id="myOrdersPanel">
+            <div class="buyer-cart-status" id="myOrdersStatus">Cargando pedidos...</div>
+            <div class="my-orders-list" id="myOrdersList"></div>
+        </div>
+    `)
+
+    const token = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("myOrdersStatus")
+    const listEl   = document.getElementById("myOrdersList")
+    const authFetch = makeOrderAuthFetch(token)
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    try {
+        const res = await authFetch("/api/ordenes/mias")
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            if      (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+            else if (res.status === 403) setStatus("No tienes permiso para ver pedidos.", "error")
+            else                         setStatus(err.detail || "No fue posible cargar los pedidos.", "error")
+            return
+        }
+
+        const orders = await res.json()
+        statusEl.classList.add("hidden")
+
+        if (!orders.length) {
+            listEl.innerHTML = `
+                <div class="my-orders-empty">
+                    <i class="fas fa-box-open"></i>
+                    <p>No tienes pedidos aún.</p>
+                    <p>¡Explora el catálogo y realiza tu primer pedido!</p>
+                </div>`
+            return
+        }
+
+        listEl.innerHTML = orders.map(order => `
+            <article class="my-order-card" data-order-id="${order._id}">
+                <div class="my-order-card-header">
+                    <div>
+                        <p class="my-order-id">Pedido #${order._id.slice(-6).toUpperCase()}</p>
+                        <p class="my-order-date">${new Date(order.createdAt).toLocaleDateString("es-CO", { day:"2-digit", month:"short", year:"numeric" })}</p>
+                    </div>
+                    ${estadoBadge(order.estado)}
+                </div>
+                <p class="my-order-items-preview">
+                    ${order.items.map(i => `${i.nombreSnapshot} × ${i.cantidad}`).join(" · ")}
+                </p>
+                <div class="my-order-card-footer">
+                    <span class="my-order-total">${formatCop(Number(order.total || 0))}</span>
+                    <button type="button" class="dashboard-action-btn my-order-detail-btn"
+                            style="padding:8px 16px;font-size:0.85rem;">
+                        Ver detalle
+                    </button>
+                </div>
+            </article>
+        `).join("")
+
+        listEl.querySelectorAll(".my-order-detail-btn").forEach(btn => {
+            const orderId = btn.closest("[data-order-id]").dataset.orderId
+            const order   = orders.find(o => o._id === orderId)
+            btn.addEventListener("click", () => openOrderDetail(order, authFetch))
+        })
+
+    } catch (e) {
+        console.error("Error cargando pedidos:", e)
+        setStatus("Error de conexión al cargar los pedidos.", "error")
+    }
+}
+
+// ── Detalle de pedido + flujo de pago ──────────────────────────
+async function openOrderDetail(order, authFetch) {
+    const token = localStorage.getItem("access_token")
+    const fetchFn = authFetch || makeOrderAuthFetch(token)
+    const isPending = order.estado === "PENDIENTE_PAGO"
+
+    openDashboard(
+        `Pedido #${order._id.slice(-6).toUpperCase()}`,
+        `
+        <div class="my-order-detail" id="orderDetailPanel">
+            <button type="button" class="my-order-back-btn" id="orderBackBtn">
+                <i class="fas fa-arrow-left"></i> Volver a mis pedidos
+            </button>
+
+            <div class="my-order-detail-header">
+                <div>
+                    <p class="my-order-id">Pedido #${order._id.slice(-6).toUpperCase()}</p>
+                    <p class="my-order-date">${new Date(order.createdAt).toLocaleDateString("es-CO", { day:"2-digit", month:"long", year:"numeric" })}</p>
+                </div>
+                <div id="orderEstadoBadge">${estadoBadge(order.estado)}</div>
+            </div>
+
+            <div class="my-order-section">
+                <h3>Productos</h3>
+                <div class="my-order-items-list">
+                    ${order.items.map(item => `
+                        <div class="my-order-item-row">
+                            <span class="my-order-item-name">${item.nombreSnapshot}</span>
+                            <span class="my-order-item-qty">× ${item.cantidad}</span>
+                            <span class="my-order-item-price">${formatCop(Number(item.precioSnapshot || 0))}</span>
+                            <span class="my-order-item-sub">${formatCop(Number(item.subtotal || 0))}</span>
+                        </div>
+                    `).join("")}
+                </div>
+                <div class="my-order-total-row">
+                    <span>Total</span>
+                    <span>${formatCop(Number(order.total || 0))}</span>
+                </div>
+            </div>
+
+            <div id="paymentSection" class="my-order-section" ${isPending ? "" : 'style="display:none"'}>
+                <h3>Pago</h3>
+                <div id="paymentStatus" class="buyer-cart-status hidden"></div>
+                <div id="paymentActions">
+                    <button type="button" class="dashboard-action-btn" id="payBtn"
+                            style="background:#c6701d;color:white;width:100%;justify-content:center;">
+                        <i class="fas fa-credit-card"></i> Pagar ahora
+                    </button>
+                </div>
+            </div>
+
+            <div class="my-order-section">
+                <h3>Historial</h3>
+                <div class="my-order-history">
+                    ${order.statusHistory.map(h => `
+                        <div class="my-order-history-item">
+                            <span class="my-order-history-dot"></span>
+                            <div>
+                                <p>${(ORDER_ESTADO_MAP[h.toStatus] || { label: h.toStatus }).label}</p>
+                                <small>${new Date(h.createdAt).toLocaleString("es-CO")}</small>
+                            </div>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        </div>
+        `
+    )
+
+    document.getElementById("orderBackBtn").addEventListener("click", () => openMyOrders())
+
+    if (!isPending) return
+
+    const payBtn      = document.getElementById("payBtn")
+    const payStatusEl = document.getElementById("paymentStatus")
+    const payActionsEl = document.getElementById("paymentActions")
+
+    function setPayStatus(msg, kind = "info") {
+        payStatusEl.textContent = msg
+        payStatusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   payStatusEl.classList.add("is-error")
+        if (kind === "success") payStatusEl.classList.add("is-success")
+    }
+
+    payBtn.addEventListener("click", async () => {
+        payBtn.disabled = true
+        setPayStatus("Creando intento de pago...")
+
+        try {
+            const res = await fetchFn("/api/pagos/crear-intento", {
+                method: "POST",
+                body: { orderId: order._id },
+            })
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if      (res.status === 401) setPayStatus("Sesión no válida.", "error")
+                else if (res.status === 403) setPayStatus("No tienes permiso para pagar esta orden.", "error")
+                else if (res.status === 404) setPayStatus("Orden no encontrada.", "error")
+                else if (res.status === 409) setPayStatus(err.detail || "Esta orden ya fue procesada.", "error")
+                else                         setPayStatus(err.detail || "No fue posible iniciar el pago.", "error")
+                payBtn.disabled = false
+                return
+            }
+
+            const intent = await res.json()
+
+            if (intent.provider === "mock") {
+                setPayStatus("Selecciona el resultado del pago (entorno de prueba):", "info")
+                payActionsEl.innerHTML = `
+                    <div class="pay-mock-actions">
+                        <button type="button" class="dashboard-action-btn mock-pay-btn"
+                                data-status="APPROVED"
+                                style="background:#0f5c2b;color:white;flex:1;justify-content:center;">
+                            <i class="fas fa-check"></i> Aprobar
+                        </button>
+                        <button type="button" class="dashboard-action-btn mock-pay-btn"
+                                data-status="REJECTED"
+                                style="background:#8e2d1c;color:white;flex:1;justify-content:center;">
+                            <i class="fas fa-times"></i> Rechazar
+                        </button>
+                    </div>`
+
+                payActionsEl.querySelectorAll(".mock-pay-btn").forEach(btn => {
+                    btn.addEventListener("click", async () => {
+                        payActionsEl.querySelectorAll(".mock-pay-btn").forEach(b => b.disabled = true)
+                        setPayStatus("Procesando pago...", "info")
+
+                        try {
+                            const emitRes = await fetch(`${API_CONFIG.BASE_URL}/api/pagos/mock/emit-event`, {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    "x-mock-webhook-token": "colficultor_dev_secret",
+                                },
+                                body: JSON.stringify({
+                                    orderId:     order._id,
+                                    providerRef: intent.providerRef,
+                                    status:      btn.dataset.status,
+                                    amount:      order.total,
+                                    currency:    "COP",
+                                }),
+                            })
+
+                            if (!emitRes.ok) {
+                                const err = await emitRes.json().catch(() => ({}))
+                                if (emitRes.status === 401) setPayStatus("Sesión no válida.", "error")
+                                else setPayStatus(err.detail || "Error al procesar el pago.", "error")
+                                payActionsEl.querySelectorAll(".mock-pay-btn").forEach(b => b.disabled = false)
+                                return
+                            }
+
+                            // Refrescar estado real desde el backend
+                            const updatedRes = await fetchFn(`/api/ordenes/${order._id}`)
+                            const updated = updatedRes.ok ? await updatedRes.json() : null
+                            const newEstado = updated?.estado || (btn.dataset.status === "APPROVED" ? "PAGADA" : "PAGO_FALLIDO")
+
+                            document.getElementById("orderEstadoBadge").innerHTML = estadoBadge(newEstado)
+                            document.getElementById("paymentSection").style.display = "none"
+
+                            if (newEstado === "PAGADA") {
+                                setPayStatus("¡Pago aprobado! Tu orden ha sido confirmada.", "success")
+                            } else {
+                                setPayStatus("El pago fue rechazado. Contacta soporte si necesitas ayuda.", "error")
+                            }
+                            payStatusEl.classList.remove("hidden")
+
+                        } catch (e) {
+                            console.error("Error procesando pago:", e)
+                            setPayStatus("Error de conexión al procesar el pago.", "error")
+                            payActionsEl.querySelectorAll(".mock-pay-btn").forEach(b => b.disabled = false)
+                        }
+                    })
+                })
+
+            } else if (intent.provider === "payu") {
+                setPayStatus("Redirigiendo a PayU…", "info")
+                const form = document.createElement("form")
+                form.method = "POST"
+                form.action = intent.paymentUrl
+                form.style.display = "none"
+                Object.entries(intent.formFields || {}).forEach(([k, v]) => {
+                    const input = document.createElement("input")
+                    input.type = "hidden"
+                    input.name = k
+                    input.value = String(v)
+                    form.appendChild(input)
+                })
+                document.body.appendChild(form)
+                form.submit()
+
+            } else {
+                setPayStatus("Proveedor de pago no reconocido.", "error")
+                payBtn.disabled = false
+            }
+
+        } catch (e) {
+            console.error("Error iniciando pago:", e)
+            setPayStatus("Error de conexión al iniciar el pago.", "error")
+            payBtn.disabled = false
+        }
+    })
+}
+
 function openProfile() {
     if (!currentUser) {
         return;
@@ -1184,6 +1560,7 @@ window.addEventListener("load", applyAuthenticatedState);
 window.addEventListener("load", () => {
     loadCatalog({ resetPage: true })
 });
+window.addEventListener("load", handlePayuRedirectIfPresent);
 
 async function openMyProducts() {
     openDashboard(
@@ -1615,104 +1992,130 @@ async function openMySales() {
     openDashboard(
         "Mis ventas",
         `
-            <div class="sales-dashboard">
-                <div class="sales-header-filters" style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
-                    <button class="sales-tab active" style="flex:1; padding:10px; border-radius:8px; border:none; background:linear-gradient(135deg, #E2902D 0%, #d17e1f 100%); color:white; font-weight:600; cursor:pointer; min-width: 150px; font-family:'Poppins', sans-serif;">
-                        <i class="fas fa-box-open"></i> Pedidos recibidos
-                    </button>
-                    <button class="sales-tab" style="flex:1; padding:10px; border-radius:8px; border:2px solid #E3E3E3; background:white; color:#4B2E2B; font-weight:600; cursor:pointer; min-width: 150px; transition: all 0.3s ease; font-family:'Poppins', sans-serif;">
-                        <i class="fas fa-history"></i> Historial de ventas
-                    </button>
-                    <button class="sales-notifications" style="flex-basis: 100%; margin-top: 5px; padding:12px; border-radius:8px; border:2px solid #E3E3E3; background:#fff; color:#4B2E2B; font-weight:600; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition: all 0.3s ease; font-family:'Poppins', sans-serif;">
-                        <span><i class="fas fa-bell"></i> Notificaciones de nuevas órdenes</span>
-                        <span style="background:linear-gradient(135deg, #E2902D 0%, #d17e1f 100%); color:white; border-radius:50%; padding:2px 8px; font-size:12px;">2</span>
-                    </button>
-                </div>
-                
-                <div class="sales-list" style="display:flex; flex-direction:column; gap:15px;">
-                    <!-- Pedido 1 -->
-                    <div class="sale-card" style="border: 2px solid #E3E3E3; border-radius: 12px; padding: 20px; background: #FFFFFF; transition: all 0.3s ease;">
-                        <div class="sale-header" style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid #E3E3E3; padding-bottom:10px;">
-                            <span style="font-weight:700; color:#4B2E2B; font-size:16px;">#ORD-0012</span>
-                            <span style="color:#878787; font-size:13px; font-weight:500;">2 Abr 2026</span>
-                        </div>
-                        <div class="sale-body" style="display:flex; gap:15px; flex-wrap:wrap; justify-content:space-between;">
-                            <div class="sale-details" style="font-size:14px; color:#4B2E2B; flex:1; min-width:180px;">
-                                <p style="margin:4px 0;"><strong style="font-weight:600;">Comprador:</strong> Juan Perez</p>
-                                <p style="margin:4px 0;"><strong style="font-weight:600;">Productos vendidos:</strong> Café Arábico (x3)</p>
-                                <p style="margin:4px 0;"><strong style="font-weight:600;">Total:</strong> <span style="color:#E2902D; font-weight:700;">$ 150.000</span></p>
-                            </div>
-                            <div class="sale-status-group" style="display:flex; flex-direction:column; gap:8px; flex:1; min-width:150px;">
-                                <label style="font-weight:600; font-size:13px; color:#4B2E2B;">Cambiar estado del pedido:</label>
-                                <select class="sale-status-select" style="padding:10px; border:2px solid #E3E3E3; border-radius:8px; font-family:'Poppins', sans-serif; cursor:pointer; outline:none; color:#4B2E2B; transition: all 0.3s ease;">
-                                    <option value="pendiente" selected>Pendiente</option>
-                                    <option value="proceso">En proceso</option>
-                                    <option value="enviado">Enviado</option>
-                                    <option value="entregado">Entregado</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="sale-actions" style="margin-top:15px; display:flex; justify-content:flex-end;">
-                            <button class="btn-detail" style="background:rgba(226, 144, 45, 0.1); border:none; color:#E2902D; padding:10px 18px; border-radius:20px; font-size:13px; font-weight:700; cursor:pointer; transition: all 0.3s ease; font-family:'Poppins', sans-serif;">
-                                <i class="fas fa-eye"></i> Detalle del pedido
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Pedido 2 -->
-                    <div class="sale-card" style="border: 2px solid #E3E3E3; border-radius: 12px; padding: 20px; background: #FFFFFF; transition: all 0.3s ease;">
-                        <div class="sale-header" style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid #E3E3E3; padding-bottom:10px;">
-                            <span style="font-weight:700; color:#4B2E2B; font-size:16px;">#ORD-0011</span>
-                            <span style="color:#878787; font-size:13px; font-weight:500;">1 Abr 2026</span>
-                        </div>
-                        <div class="sale-body" style="display:flex; gap:15px; flex-wrap:wrap; justify-content:space-between;">
-                            <div class="sale-details" style="font-size:14px; color:#4B2E2B; flex:1; min-width:180px;">
-                                <p style="margin:4px 0;"><strong style="font-weight:600;">Comprador:</strong> Café Export S.A.</p>
-                                <p style="margin:4px 0;"><strong style="font-weight:600;">Productos vendidos:</strong> Castilla (x10), Caturra (x5)</p>
-                                <p style="margin:4px 0;"><strong style="font-weight:600;">Total:</strong> <span style="color:#E2902D; font-weight:700;">$ 950.000</span></p>
-                            </div>
-                            <div class="sale-status-group" style="display:flex; flex-direction:column; gap:8px; flex:1; min-width:150px;">
-                                <label style="font-weight:600; font-size:13px; color:#4B2E2B;">Cambiar estado del pedido:</label>
-                                <select class="sale-status-select" style="padding:10px; border:2px solid #E3E3E3; border-radius:8px; font-family:'Poppins', sans-serif; cursor:pointer; outline:none; color:#4B2E2B; transition: all 0.3s ease;">
-                                    <option value="pendiente">Pendiente</option>
-                                    <option value="proceso" selected>En proceso</option>
-                                    <option value="enviado">Enviado</option>
-                                    <option value="entregado">Entregado</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="sale-actions" style="margin-top:15px; display:flex; justify-content:flex-end;">
-                            <button class="btn-detail" style="background:rgba(226, 144, 45, 0.1); border:none; color:#E2902D; padding:10px 18px; border-radius:20px; font-size:13px; font-weight:700; cursor:pointer; transition: all 0.3s ease; font-family:'Poppins', sans-serif;">
-                                <i class="fas fa-eye"></i> Detalle del pedido
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <div class="my-orders-panel" id="mySalesPanel">
+                <div class="buyer-cart-status" id="mySalesStatus">Cargando ventas...</div>
+                <div class="my-orders-list" id="mySalesList"></div>
             </div>
-            
-            <style>
-                .sales-tab:hover, .sales-notifications:hover {
-                    box-shadow: 0 4px 12px rgba(226,144,45, 0.15);
-                    transform: translateY(-2px);
-                    border-color: #E2902D !important;
-                }
-                .sale-card:hover {
-                    box-shadow: 0 8px 25px rgba(226, 144, 45, 0.15);
-                    border-color: #E2902D;
-                    transform: translateY(-2px);
-                }
-                .btn-detail:hover {
-                    background: linear-gradient(135deg, #E2902D 0%, #d17e1f 100%) !important;
-                    color: white !important;
-                    box-shadow: 0 4px 10px rgba(226,144,45, 0.3);
-                }
-                .sale-status-select:focus {
-                    border-color: #E2902D !important;
-                    box-shadow: 0 0 0 3px rgba(226, 144, 45, 0.1);
-                }
-            </style>
         `
     );
+
+    const token = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("mySalesStatus")
+    const listEl   = document.getElementById("mySalesList")
+
+    // Transiciones válidas para el caficultor
+    const NEXT_STATES = {
+        PAGADA:         [{ value: "EN_PREPARACION", label: "En preparación" }, { value: "CANCELADA", label: "Cancelar orden" }],
+        EN_PREPARACION: [{ value: "ENVIADA", label: "Enviada" }, { value: "CANCELADA", label: "Cancelar orden" }],
+        ENVIADA:        [{ value: "ENTREGADA", label: "Entregada" }],
+    }
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    async function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        const options = { method: opts.method || "GET", headers }
+        if (opts.body) { headers["Content-Type"] = "application/json"; options.body = JSON.stringify(opts.body) }
+        return fetch(`${API_CONFIG.BASE_URL}${path}`, options)
+    }
+
+    async function changeStatus(orderId, newEstado, cardEl) {
+        const feedbackEl = cardEl.querySelector(".sale-feedback")
+        feedbackEl.textContent = "Actualizando..."
+        feedbackEl.className = "sale-feedback buyer-cart-status"
+        try {
+            const res = await authFetch(`/api/ordenes/${orderId}/estado`, { method: "PUT", body: { estado: newEstado } })
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                feedbackEl.textContent = err.detail || "No fue posible cambiar el estado."
+                feedbackEl.classList.add("is-error")
+                return
+            }
+            openMySales()
+        } catch {
+            feedbackEl.textContent = "Error de conexión."
+            feedbackEl.classList.add("is-error")
+        }
+    }
+
+    try {
+        const res = await authFetch("/api/ordenes/ventas")
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            if      (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+            else if (res.status === 403) setStatus("No tienes permiso para ver ventas.", "error")
+            else                         setStatus(err.detail || "No fue posible cargar las ventas.", "error")
+            return
+        }
+
+        const orders = await res.json()
+        statusEl.classList.add("hidden")
+
+        if (!orders.length) {
+            listEl.innerHTML = `
+                <div class="my-orders-empty">
+                    <i class="fas fa-store-slash"></i>
+                    <p>Aún no tienes ventas.</p>
+                    <p>Cuando un comprador pague una orden con tus productos, aparecerá aquí.</p>
+                </div>`
+            return
+        }
+
+        listEl.innerHTML = orders.map(order => {
+            const nextStates = NEXT_STATES[order.estado] || []
+            const itemsText = order.items.map(i => `${i.nombreSnapshot} × ${i.cantidad}`).join(" · ")
+            const stateOptions = nextStates.map(s =>
+                `<option value="${s.value}">${s.label}</option>`
+            ).join("")
+            const hasActions = nextStates.length > 0
+
+            return `
+            <article class="my-order-card" data-order-id="${order._id}">
+                <div class="my-order-card-header">
+                    <div>
+                        <p class="my-order-id">Pedido #${order._id.slice(-6).toUpperCase()}</p>
+                        <p class="my-order-date">${new Date(order.createdAt).toLocaleDateString("es-CO", { day:"2-digit", month:"short", year:"numeric" })}</p>
+                    </div>
+                    ${estadoBadge(order.estado)}
+                </div>
+                <p class="my-order-items-preview">${itemsText}</p>
+                <div class="my-order-card-footer">
+                    <span class="my-order-total">${formatCop(Number(order.total || 0))}</span>
+                    ${hasActions ? `
+                    <div class="sale-state-actions">
+                        <select class="sale-next-state" style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-family:inherit;font-size:0.85rem;color:#333;cursor:pointer;">
+                            <option value="">Cambiar estado…</option>
+                            ${stateOptions}
+                        </select>
+                        <button type="button" class="dashboard-action-btn sale-apply-btn"
+                                style="padding:7px 14px;font-size:0.85rem;background:#c6701d;color:white;">
+                            Aplicar
+                        </button>
+                    </div>` : ""}
+                </div>
+                <div class="sale-feedback hidden"></div>
+            </article>`
+        }).join("")
+
+        listEl.querySelectorAll(".sale-apply-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const card    = btn.closest(".my-order-card")
+                const orderId = card.dataset.orderId
+                const select  = card.querySelector(".sale-next-state")
+                if (!select.value) { return }
+                changeStatus(orderId, select.value, card)
+            })
+        })
+
+    } catch (e) {
+        console.error("Error cargando ventas:", e)
+        setStatus("Error de conexión al cargar las ventas.", "error")
+    }
 }
 
 async function openMyStats() {
