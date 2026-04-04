@@ -22,6 +22,7 @@ const dashboardPanel = document.getElementById("dashboardPanel")
 const dashboardTitle = document.getElementById("dashboardTitle")
 const dashboardBody = document.getElementById("dashboardBody")
 const closeDashboardBtn = document.getElementById("closeDashboardBtn")
+const cartBtn = document.getElementById("cartBtn")
 
 let currentUser = null
 
@@ -526,8 +527,6 @@ function buildMenuItems(role) {
 
     if (role === "comprador") {
         return [
-            { label: "Mi carrito", action: openBuyerCart },
-            { label: "Favoritos", action: () => openPlaceholder("Favoritos", "Tus productos favoritos aparecerán en este espacio.") },
             ...common,
         ];
     }
@@ -1058,7 +1057,7 @@ function openSettings() {
                     </div>
                     
                     <div style="margin-top:30px; display:flex; gap:15px; flex-wrap:wrap; align-items:center; justify-content: flex-end;">
-                        <button id="dashboardLogoutBtn" type="button" class="dashboard-action-btn" style="background:#dc3545; color: white; border:none; padding:12px 20px; border-radius:8px; font-weight:600; cursor:pointer;">Cerrar sesión</button>
+                        <button id="dashboardCancelSettingsBtn" type="button" class="dashboard-action-btn" style="background:#888; color: white; border:none; padding:12px 20px; border-radius:8px; font-weight:600; cursor:pointer;">Cancelar</button>
                         <button type="submit" id="dashboardSaveSettingsBtn" class="dashboard-action-btn" style="background:#c6701d; color: white; border:none; padding:12px 25px; border-radius:8px; font-weight:600; cursor:pointer;">Guardar cambios</button>
                     </div>
                 </form>
@@ -1113,10 +1112,9 @@ function openSettings() {
         });
     }
 
-    const dashboardLogoutBtn = document.getElementById("dashboardLogoutBtn");
-    if (dashboardLogoutBtn) {
-        dashboardLogoutBtn.addEventListener("click", () => {
-            logout();
+    const dashboardCancelSettingsBtn = document.getElementById("dashboardCancelSettingsBtn");
+    if (dashboardCancelSettingsBtn) {
+        dashboardCancelSettingsBtn.addEventListener("click", () => {
             closeDashboard();
         });
     }
@@ -1144,6 +1142,10 @@ userMenu.addEventListener("click", (e) => {
 
 closeDashboardBtn?.addEventListener("click", () => {
     closeDashboard();
+});
+
+cartBtn?.addEventListener("click", () => {
+    openBuyerCart();
 });
 
 function toggleUserMenu() {
@@ -1231,15 +1233,24 @@ async function openMyProducts() {
                             <h3 style="margin: 0 0 10px 0; font-size: 1.2rem; color: #333;">${p.nombre}</h3>
                             <p style="margin: 0 0 10px 0; color: #666; font-size: 0.9rem; line-height: 1.4; flex-grow: 1;">${p.descripcion}</p>
                             <span style="font-size: 0.8rem; color: #888; margin-bottom: 10px;"><i class="fas fa-map-marker-alt"></i> ${p.region} | Stock: ${p.stock}</span>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-weight: bold; color: #c6701d; font-size: 1.1rem;">$${p.precio}</span>
-                                <button class="dashboard-action-btn edit-product-btn" data-id="${p.id || p._id}" style="padding: 6px 12px; font-size: 0.85rem;">Editar</button>
+                            <span style="font-weight: bold; color: #c6701d; font-size: 1.1rem; margin-bottom: 12px;">${formatCop(Number(p.precio))}</span>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="dashboard-action-btn edit-product-btn" data-id="${p._id || p.id}" style="flex:1; padding: 6px 10px; font-size: 0.85rem;">
+                                    <i class="fas fa-pen"></i> Editar
+                                </button>
                             </div>
                         </section>
                     </article>
                 `).join('');
-                
-                // Los listeners de editar se pueden añadir aquí usando document.querySelectorAll('.edit-product-btn')
+
+                productsGrid.querySelectorAll('.edit-product-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const id = btn.dataset.id;
+                        const product = products.find(p => (p._id || p.id) === id);
+                        if (product) openEditProductModal(product);
+                    });
+                });
+
             }
         } else {
             productsGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: red;">No se pudieron cargar los productos.</div>`;
@@ -1287,7 +1298,41 @@ function openAddProductModal() {
 
                         <div style="display:flex;flex-direction:column;gap:5px;">
                             <label style="font-weight:600; color: #333;">Región de Origen</label>
-                            <input type="text" id="prodRegion" placeholder="Ej. Quindío" required style="padding:12px 14px;border:1px solid #ddd;border-radius:12px;" />
+                            <select id="prodRegion" required style="padding:12px 14px;border:1px solid #ddd;border-radius:12px;background:#fff;color:#333;font-family:inherit;font-size:1rem;">
+                                <option value="" disabled selected>Seleccione un departamento</option>
+                                <option>Amazonas</option>
+                                <option>Antioquia</option>
+                                <option>Arauca</option>
+                                <option>Atlántico</option>
+                                <option>Bolívar</option>
+                                <option>Boyacá</option>
+                                <option>Caldas</option>
+                                <option>Caquetá</option>
+                                <option>Casanare</option>
+                                <option>Cauca</option>
+                                <option>Cesar</option>
+                                <option>Chocó</option>
+                                <option>Córdoba</option>
+                                <option>Cundinamarca</option>
+                                <option>Guainía</option>
+                                <option>Guaviare</option>
+                                <option>Huila</option>
+                                <option>La Guajira</option>
+                                <option>Magdalena</option>
+                                <option>Meta</option>
+                                <option>Nariño</option>
+                                <option>Norte de Santander</option>
+                                <option>Putumayo</option>
+                                <option>Quindío</option>
+                                <option>Risaralda</option>
+                                <option>San Andrés y Providencia</option>
+                                <option>Santander</option>
+                                <option>Sucre</option>
+                                <option>Tolima</option>
+                                <option>Valle del Cauca</option>
+                                <option>Vaupés</option>
+                                <option>Vichada</option>
+                            </select>
                         </div>
                     </div>
                     
@@ -1343,6 +1388,137 @@ function openAddProductModal() {
                 alert("Ocurrió un error al conectar con el servidor.");
             }
         });
+    }
+}
+
+function openEditProductModal(product) {
+    const productId = product._id || product.id;
+    const depts = [
+        "Amazonas","Antioquia","Arauca","Atlántico","Bolívar",
+        "Boyacá","Caldas","Caquetá","Casanare","Cauca","Cesar","Chocó",
+        "Córdoba","Cundinamarca","Guainía","Guaviare","Huila","La Guajira",
+        "Magdalena","Meta","Nariño","Norte de Santander","Putumayo","Quindío",
+        "Risaralda","San Andrés y Providencia","Santander","Sucre","Tolima",
+        "Valle del Cauca","Vaupés","Vichada"
+    ];
+    const deptOptions = depts.map(d =>
+        `<option${d === product.region ? ' selected' : ''}>${d}</option>`
+    ).join('');
+
+    openDashboard(
+        "Editar Producto",
+        `
+            <div class="dashboard-section" style="max-width: 600px; margin: 0 auto; width: 100%;">
+                <form id="editProductForm" class="settings-form">
+                    <div style="display:flex;flex-direction:column;gap:15px;">
+                        <div style="display:flex;flex-direction:column;gap:5px;">
+                            <label style="font-weight:600; color: #333;">Nombre del Producto</label>
+                            <input type="text" id="editProdName" value="${product.nombre}" required style="padding:12px 14px;border:1px solid #ddd;border-radius:12px;" />
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:5px;">
+                            <label style="font-weight:600; color: #333;">Descripción</label>
+                            <textarea id="editProdDesc" rows="4" required style="padding:12px 14px;border:1px solid #ddd;border-radius:12px; resize: vertical; font-family: inherit;">${product.descripcion}</textarea>
+                        </div>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                            <div style="display:flex;flex-direction:column;gap:5px;">
+                                <label style="font-weight:600; color: #333;">Precio (COP)</label>
+                                <input type="number" id="editProdPrice" value="${product.precio}" min="1" required style="padding:12px 14px;border:1px solid #ddd;border-radius:12px;" />
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:5px;">
+                                <label style="font-weight:600; color: #333;">Stock Disponible</label>
+                                <input type="number" id="editProdStock" value="${product.stock}" min="0" required style="padding:12px 14px;border:1px solid #ddd;border-radius:12px;" />
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:5px;">
+                            <label style="font-weight:600; color: #333;">Región de Origen</label>
+                            <select id="editProdRegion" required style="padding:12px 14px;border:1px solid #ddd;border-radius:12px;background:#fff;color:#333;font-family:inherit;font-size:1rem;">
+                                <option value="" disabled>Seleccione un departamento</option>
+                                ${deptOptions}
+                            </select>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:5px;">
+                            <label style="font-weight:600; color: #333;">Estado</label>
+                            <select id="editProdActive" style="padding:12px 14px;border:1px solid #ddd;border-radius:12px;background:#fff;color:#333;font-family:inherit;font-size:1rem;">
+                                <option value="true"${product.is_active ? ' selected' : ''}>Activo</option>
+                                <option value="false"${!product.is_active ? ' selected' : ''}>Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="editProductStatus" style="display:none; margin-top:12px; padding:10px 14px; border-radius:10px; font-weight:500; font-size:0.93rem;"></div>
+                    <div style="margin-top:24px; display:flex; gap:15px; justify-content: space-between; flex-wrap:wrap;">
+                        <button id="deleteEditProductBtn" type="button" class="dashboard-action-btn" style="background:#8e2d1c; color: white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">
+                            <i class="fas fa-trash"></i> Eliminar producto
+                        </button>
+                        <div style="display:flex; gap:10px;">
+                            <button id="cancelEditProductBtn" type="button" class="dashboard-action-btn" style="background:#888; color: white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">Cancelar</button>
+                            <button type="submit" class="dashboard-action-btn" style="background:#c6701d; color: white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">Guardar cambios</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        `
+    );
+
+    document.getElementById("cancelEditProductBtn")?.addEventListener("click", () => openMyProducts());
+    document.getElementById("deleteEditProductBtn")?.addEventListener("click", () => deleteProduct(productId));
+
+    const form = document.getElementById("editProductForm");
+    const statusEl = document.getElementById("editProductStatus");
+
+    function showEditStatus(msg, ok) {
+        statusEl.textContent = msg;
+        statusEl.style.display = "block";
+        statusEl.style.background = ok ? "#effcf4" : "#fff2ef";
+        statusEl.style.color = ok ? "#0f5c2b" : "#8e2d1c";
+        statusEl.style.border = `1px solid ${ok ? "#bce8ca" : "#f1c8bf"}`;
+    }
+
+    form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const payload = {
+            nombre: document.getElementById("editProdName").value,
+            descripcion: document.getElementById("editProdDesc").value,
+            precio: parseFloat(document.getElementById("editProdPrice").value),
+            stock: parseInt(document.getElementById("editProdStock").value),
+            region: document.getElementById("editProdRegion").value,
+            is_active: document.getElementById("editProdActive").value === "true",
+        };
+        const token = localStorage.getItem("access_token");
+        try {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/api/productos/${productId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify(payload),
+            });
+            if (response.ok) {
+                showEditStatus("¡Producto actualizado exitosamente!", true);
+                setTimeout(() => openMyProducts(), 1200);
+            } else {
+                const err = await response.json().catch(() => ({}));
+                showEditStatus(err.detail || "No fue posible actualizar el producto.", false);
+            }
+        } catch {
+            showEditStatus("Error de conexión con el servidor.", false);
+        }
+    });
+}
+
+async function deleteProduct(productId) {
+    if (!confirm("¿Seguro que deseas eliminar este producto? Esta acción lo desactivará del catálogo.")) return;
+    const token = localStorage.getItem("access_token");
+    try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/productos/${productId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok || response.status === 204) {
+            openMyProducts();
+        } else {
+            const err = await response.json().catch(() => ({}));
+            alert(err.detail || "No fue posible eliminar el producto.");
+        }
+    } catch {
+        alert("Error de conexión con el servidor.");
     }
 }
 
