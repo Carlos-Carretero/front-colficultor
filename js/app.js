@@ -276,6 +276,9 @@ function setCatalogStatus(message, kind = "info") {
     if (kind === "success") catalogStatus.classList.add("is-success")
 }
 
+// Caché de productos del catálogo cargados actualmente (id → objeto completo)
+const catalogItemsCache = new Map()
+
 function getCatalogFilters() {
     return {
         q: document.getElementById("filterQ")?.value?.trim() || "",
@@ -303,6 +306,8 @@ function buildCatalogUrl() {
 
 function renderCatalogItems(items) {
     if (!catalogResults) return
+    catalogItemsCache.clear()
+    items.forEach(p => catalogItemsCache.set(p._id, p))
     catalogResults.innerHTML = items.map((product) => {
         const imgUrl = product.urls_imagenes && product.urls_imagenes.length > 0
             ? product.urls_imagenes[0]
@@ -325,9 +330,14 @@ function renderCatalogItems(items) {
             </section>
             <section class="catalog-card-footer">
                 <span class="catalog-price">${formatCop(Number(product.precio || 0))}</span>
-                <button type="button" class="btn-comprar catalog-add-btn" data-product-id="${product._id}">
-                    Agregar
-                </button>
+                <div class="catalog-card-actions">
+                    <button type="button" class="catalog-detail-btn" data-product-id="${product._id}">
+                        <i class="fas fa-eye"></i> Ver detalle
+                    </button>
+                    <button type="button" class="btn-comprar catalog-add-btn" data-product-id="${product._id}">
+                        <i class="fas fa-cart-plus"></i> Agregar
+                    </button>
+                </div>
             </section>
         </article>
     `}).join("")
@@ -483,6 +493,15 @@ if (catalogResults) {
     catalogResults.addEventListener("click", async (event) => {
         const target = event.target
         if (!(target instanceof Element)) return
+
+        const detailBtn = target.closest(".catalog-detail-btn")
+        if (detailBtn) {
+            const productId = detailBtn.dataset.productId
+            const product   = catalogItemsCache.get(productId)
+            if (product) await openProductDetail(product)
+            return
+        }
+
         const addBtn = target.closest(".catalog-add-btn")
         if (!addBtn) return
         const productId = addBtn.dataset.productId
@@ -538,6 +557,8 @@ function buildMenuItems(role) {
     if (role === "comprador") {
         return [
             { label: "Mis pedidos", action: openMyOrders },
+            { label: "Mis reseñas", action: openMyReviews },
+            { label: "Soporte / PQR", action: openMyPQR },
             ...common,
         ];
     }
@@ -547,6 +568,7 @@ function buildMenuItems(role) {
             { label: "Gestión de usuarios", action: () => openPlaceholder("Gestión de usuarios", "Administra cuentas de usuario desde aquí." ) },
             { label: "Gestión de productos", action: () => openPlaceholder("Gestión de productos", "Administra el catálogo de productos desde aquí." ) },
             { label: "Reportes del sistema", action: () => openPlaceholder("Reportes del sistema", "Consulta reportes e indicadores del sistema." ) },
+            { label: "Gestión PQR", action: openAdminPQR },
             { label: "Configuración general", action: openSettings },
             ...common,
         ];
@@ -1086,12 +1108,45 @@ async function openOrderDetail(order, authFetch) {
                 <h3>Productos</h3>
                 <div class="my-order-items-list">
                     ${order.items.map(item => `
-                        <div class="my-order-item-row">
+                        <div class="my-order-item-row" data-product-id="${item.productId}">
                             <span class="my-order-item-name">${item.nombreSnapshot}</span>
                             <span class="my-order-item-qty">× ${item.cantidad}</span>
                             <span class="my-order-item-price">${formatCop(Number(item.precioSnapshot || 0))}</span>
                             <span class="my-order-item-sub">${formatCop(Number(item.subtotal || 0))}</span>
+                            ${order.estado === "ENTREGADA" ? `
+                            <button type="button"
+                                    class="review-open-btn"
+                                    data-product-id="${item.productId}"
+                                    data-product-name="${item.nombreSnapshot.replace(/"/g, '&quot;')}">
+                                <i class="fas fa-star"></i> Reseñar
+                            </button>` : ""}
                         </div>
+                        ${order.estado === "ENTREGADA" ? `
+                        <div class="review-form-wrapper hidden" id="review-form-${item.productId}">
+                            <form class="review-inline-form" data-product-id="${item.productId}">
+                                <p class="review-form-title">Reseña de <strong>${item.nombreSnapshot}</strong></p>
+                                <div class="star-rating" role="group" aria-label="Calificación">
+                                    ${[5,4,3,2,1].map(n => `
+                                    <input type="radio" name="rating-${item.productId}" id="star-${item.productId}-${n}" value="${n}" required>
+                                    <label for="star-${item.productId}-${n}" aria-label="${n} estrella${n > 1 ? 's' : ''}">★</label>
+                                    `).join("")}
+                                </div>
+                                <textarea class="review-textarea"
+                                          name="comentario"
+                                          placeholder="Escribe tu comentario (mínimo 3 caracteres)..."
+                                          minlength="3"
+                                          maxlength="1200"
+                                          rows="3"
+                                          required></textarea>
+                                <div class="review-form-status buyer-cart-status hidden"></div>
+                                <div class="review-form-actions">
+                                    <button type="submit" class="dashboard-action-btn review-submit-btn">
+                                        <i class="fas fa-paper-plane"></i> Enviar reseña
+                                    </button>
+                                    <button type="button" class="review-cancel-btn">Cancelar</button>
+                                </div>
+                            </form>
+                        </div>` : ""}
                     `).join("")}
                 </div>
                 <div class="my-order-total-row">
@@ -1130,6 +1185,103 @@ async function openOrderDetail(order, authFetch) {
     )
 
     document.getElementById("orderBackBtn").addEventListener("click", () => openMyOrders())
+
+    // ── Reseñas (solo órdenes ENTREGADA) ───────────────────────
+    if (order.estado === "ENTREGADA") {
+        const panel = document.getElementById("orderDetailPanel")
+
+        panel.querySelectorAll(".review-open-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const productId = btn.dataset.productId
+                const wrapper   = document.getElementById(`review-form-${productId}`)
+                if (!wrapper) return
+                const isHidden = wrapper.classList.contains("hidden")
+                // cerrar todos los formularios abiertos
+                panel.querySelectorAll(".review-form-wrapper").forEach(w => w.classList.add("hidden"))
+                panel.querySelectorAll(".review-open-btn").forEach(b => b.classList.remove("active"))
+                if (isHidden) {
+                    wrapper.classList.remove("hidden")
+                    btn.classList.add("active")
+                    wrapper.querySelector("textarea")?.focus()
+                }
+            })
+        })
+
+        panel.querySelectorAll(".review-cancel-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const wrapper = btn.closest(".review-form-wrapper")
+                if (!wrapper) return
+                const productId = wrapper.id.replace("review-form-", "")
+                wrapper.classList.add("hidden")
+                panel.querySelector(`.review-open-btn[data-product-id="${productId}"]`)
+                     ?.classList.remove("active")
+            })
+        })
+
+        panel.querySelectorAll(".review-inline-form").forEach(form => {
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault()
+                const productId  = form.dataset.productId
+                const statusEl   = form.querySelector(".review-form-status")
+                const submitBtn  = form.querySelector(".review-submit-btn")
+                const ratingInput = form.querySelector(`input[name="rating-${productId}"]:checked`)
+                const comentario  = form.querySelector("textarea[name='comentario']").value.trim()
+
+                function setFormStatus(msg, kind = "info") {
+                    statusEl.textContent = msg
+                    statusEl.classList.remove("hidden", "is-error", "is-success")
+                    if (kind === "error")   statusEl.classList.add("is-error")
+                    if (kind === "success") statusEl.classList.add("is-success")
+                }
+
+                if (!ratingInput) {
+                    setFormStatus("Selecciona una calificación de 1 a 5 estrellas.", "error")
+                    return
+                }
+
+                submitBtn.disabled = true
+                setFormStatus("Enviando reseña...")
+
+                try {
+                    const res = await fetchFn("/api/resenas", {
+                        method: "POST",
+                        body: {
+                            productId,
+                            calificacion: Number(ratingInput.value),
+                            comentario,
+                        },
+                    })
+
+                    if (res.ok) {
+                        setFormStatus("¡Reseña enviada con éxito! Gracias.", "success")
+                        form.querySelector(`input[name="rating-${productId}"]:checked`).checked = false
+                        form.querySelector("textarea").value = ""
+                        submitBtn.disabled = true
+                        // reemplazar botón "Reseñar" por indicador visual
+                        const openBtn = panel.querySelector(`.review-open-btn[data-product-id="${productId}"]`)
+                        if (openBtn) {
+                            openBtn.textContent = "✓ Reseñado"
+                            openBtn.disabled = true
+                            openBtn.classList.add("reviewed")
+                        }
+                        return
+                    }
+
+                    const err = await res.json().catch(() => ({}))
+                    if      (res.status === 403) setFormStatus("Solo puedes reseñar productos que hayas comprado en una orden pagada.", "error")
+                    else if (res.status === 409) setFormStatus("Ya enviaste una reseña para este producto.", "error")
+                    else if (res.status === 401) setFormStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                    else                         setFormStatus(err.detail || "No fue posible enviar la reseña.", "error")
+                    submitBtn.disabled = false
+
+                } catch (err) {
+                    console.error("Error enviando reseña:", err)
+                    setFormStatus("Error de conexión al enviar la reseña.", "error")
+                    submitBtn.disabled = false
+                }
+            })
+        })
+    }
 
     if (!isPending) return
 
@@ -2439,3 +2591,631 @@ function cleanGoogleParams() {
         if (modal) modal.classList.add("active")
     }
 })()
+
+// ── Detalle de producto + reseñas públicas ───────────────────────
+async function openProductDetail(product) {
+    const imgHtml = product.urls_imagenes && product.urls_imagenes.length > 0
+        ? `<div class="product-detail-img-wrapper">
+               <img src="${product.urls_imagenes[0]}" alt="${product.nombre}" class="product-detail-img" />
+           </div>`
+        : `<div class="product-detail-img-wrapper">
+               <div class="product-detail-img-placeholder"><i class="fas fa-image"></i></div>
+           </div>`
+
+    openDashboard(product.nombre, `
+        <div class="product-detail-panel" id="productDetailPanel">
+            ${imgHtml}
+            <div class="product-detail-info">
+                <p class="product-detail-region">
+                    <i class="fas fa-map-marker-alt"></i>
+                    ${product.region || product.origen || "Sin región"}
+                </p>
+                <p class="product-detail-price">${formatCop(Number(product.precio || 0))}</p>
+                <p class="product-detail-stock">Stock disponible: ${product.stock ?? 0}</p>
+                <p class="product-detail-desc">${product.descripcion || "Sin descripción"}</p>
+                <button type="button" class="dashboard-action-btn product-detail-add-btn"
+                        data-product-id="${product._id}"
+                        style="width:100%;justify-content:center;">
+                    <i class="fas fa-shopping-cart"></i> Agregar al carrito
+                </button>
+            </div>
+
+            <div class="product-reviews-section">
+                <h3 class="product-reviews-heading">Reseñas</h3>
+                <div class="product-reviews-summary" id="reviewsSummary">
+                    <span class="reviews-loading">Cargando reseñas...</span>
+                </div>
+                <div class="product-reviews-list" id="reviewsList"></div>
+            </div>
+        </div>
+    `)
+
+    // Agregar al carrito desde el detalle
+    document.getElementById("productDetailPanel")
+        .querySelector(".product-detail-add-btn")
+        .addEventListener("click", () => addToCartFromCatalog(product._id))
+
+    // Cargar reseñas (endpoint público — sin token)
+    const summaryEl = document.getElementById("reviewsSummary")
+    const listEl    = document.getElementById("reviewsList")
+
+    function renderStars(rating, total = 5) {
+        return Array.from({ length: total }, (_, i) =>
+            `<span class="review-star${i < Math.round(rating) ? " filled" : ""}" aria-hidden="true">★</span>`
+        ).join("")
+    }
+
+    try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/productos/${product._id}/resenas`)
+
+        if (!res.ok) {
+            summaryEl.innerHTML = `<span class="reviews-empty">No se pudieron cargar las reseñas.</span>`
+            return
+        }
+
+        const data = await res.json()   // { productId, promedio, total, items }
+
+        if (data.total === 0) {
+            summaryEl.innerHTML = `<span class="reviews-empty">Este producto aún no tiene reseñas.</span>`
+            return
+        }
+
+        summaryEl.innerHTML = `
+            <div class="reviews-summary-box">
+                <span class="reviews-avg-score">${data.promedio.toFixed(1)}</span>
+                <div class="reviews-avg-stars" aria-label="Promedio: ${data.promedio.toFixed(1)} de 5">
+                    ${renderStars(data.promedio)}
+                </div>
+                <span class="reviews-total">${data.total} reseña${data.total !== 1 ? "s" : ""}</span>
+            </div>`
+
+        listEl.innerHTML = data.items.map(r => `
+            <article class="product-review-item">
+                <div class="product-review-item-header">
+                    <div class="review-stars" aria-label="Calificación: ${r.calificacion} de 5">
+                        ${renderStars(r.calificacion)}
+                    </div>
+                    <span class="my-review-date">
+                        ${new Date(r.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                </div>
+                <p class="my-review-comentario">${r.comentario}</p>
+            </article>
+        `).join("")
+
+    } catch (e) {
+        console.error("Error cargando reseñas del producto:", e)
+        summaryEl.innerHTML = `<span class="reviews-empty">Error de conexión al cargar reseñas.</span>`
+    }
+}
+
+// ── Mis reseñas ──────────────────────────────────────────────────
+async function openMyReviews() {
+    if (!currentUser || currentUser.role !== "comprador") {
+        openPlaceholder("Mis reseñas", "Solo los compradores pueden ver sus reseñas.")
+        return
+    }
+
+    openDashboard("Mis reseñas", `
+        <div class="my-reviews-panel" id="myReviewsPanel">
+            <div class="buyer-cart-status" id="myReviewsStatus">Cargando reseñas...</div>
+            <div class="my-reviews-list" id="myReviewsList"></div>
+        </div>
+    `)
+
+    const token    = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("myReviewsStatus")
+    const listEl   = document.getElementById("myReviewsList")
+    const authFetch = makeOrderAuthFetch(token)
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    function renderStars(rating) {
+        return Array.from({ length: 5 }, (_, i) =>
+            `<span class="review-star${i < rating ? " filled" : ""}" aria-hidden="true">★</span>`
+        ).join("")
+    }
+
+    try {
+        const res = await authFetch("/api/resenas/mis")
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            if      (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+            else if (res.status === 403) setStatus("No tienes permiso para ver reseñas.", "error")
+            else                         setStatus(err.detail || "No fue posible cargar las reseñas.", "error")
+            return
+        }
+
+        const reviews = await res.json()
+        statusEl.classList.add("hidden")
+
+        if (!reviews.length) {
+            listEl.innerHTML = `
+                <div class="my-orders-empty">
+                    <i class="fas fa-star"></i>
+                    <p>Aún no has escrito ninguna reseña.</p>
+                    <p>Compra y recibe productos para poder reseñarlos.</p>
+                </div>`
+            return
+        }
+
+        listEl.innerHTML = reviews.map(r => `
+            <article class="my-review-card">
+                <div class="my-review-card-header">
+                    <div class="review-stars" aria-label="Calificación: ${r.calificacion} de 5">
+                        ${renderStars(r.calificacion)}
+                    </div>
+                    <span class="my-review-date">
+                        ${new Date(r.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                </div>
+                <p class="my-review-comentario">${r.comentario}</p>
+                <p class="my-review-product-id">Producto: <code>${r.productId}</code></p>
+            </article>
+        `).join("")
+
+    } catch (e) {
+        console.error("Error cargando reseñas:", e)
+        setStatus("Error de conexión al cargar las reseñas.", "error")
+    }
+}
+
+// ── Soporte / PQR — comprador ────────────────────────────────────
+async function openMyPQR() {
+    if (!currentUser) {
+        openPlaceholder("Soporte / PQR", "Debes iniciar sesión para acceder al soporte.")
+        return
+    }
+
+    openDashboard("Soporte / PQR", `
+        <div class="pqr-panel" id="pqrPanel">
+
+            <section class="pqr-create-section">
+                <h3 class="pqr-section-heading">Crear ticket</h3>
+                <form class="pqr-form" id="pqrCreateForm" novalidate>
+                    <div class="pqr-form-row">
+                        <label class="pqr-label" for="pqrTipo">Tipo</label>
+                        <select class="pqr-select" id="pqrTipo" name="tipo" required>
+                            <option value="" disabled selected>Selecciona un tipo…</option>
+                            <option value="PETICION">Petición</option>
+                            <option value="QUEJA">Queja</option>
+                            <option value="RECLAMO">Reclamo</option>
+                            <option value="SOPORTE">Soporte técnico</option>
+                        </select>
+                    </div>
+                    <div class="pqr-form-row">
+                        <label class="pqr-label" for="pqrAsunto">Asunto</label>
+                        <input class="pqr-input" id="pqrAsunto" name="asunto"
+                               type="text" placeholder="Resumen breve del problema…"
+                               minlength="3" maxlength="200" required />
+                    </div>
+                    <div class="pqr-form-row">
+                        <label class="pqr-label" for="pqrDescripcion">Descripción</label>
+                        <textarea class="pqr-textarea" id="pqrDescripcion" name="descripcion"
+                                  placeholder="Describe el problema con detalle…"
+                                  minlength="5" maxlength="3000" rows="4" required></textarea>
+                    </div>
+                    <div class="buyer-cart-status hidden" id="pqrCreateStatus"></div>
+                    <button type="submit" class="dashboard-action-btn pqr-submit-btn">
+                        <i class="fas fa-paper-plane"></i> Enviar ticket
+                    </button>
+                </form>
+            </section>
+
+            <section class="pqr-list-section">
+                <h3 class="pqr-section-heading">Mis tickets</h3>
+                <div class="buyer-cart-status" id="pqrListStatus">Cargando tickets…</div>
+                <div class="pqr-list" id="pqrList"></div>
+            </section>
+
+        </div>
+    `)
+
+    const token     = localStorage.getItem("access_token")
+    const authFetch = makeOrderAuthFetch(token)
+
+    // ── helpers locales ──
+    const PQR_TIPO_MAP = {
+        PETICION: "Petición",
+        QUEJA:    "Queja",
+        RECLAMO:  "Reclamo",
+        SOPORTE:  "Soporte técnico",
+    }
+
+    const PQR_ESTADO_MAP = {
+        ABIERTO:    { label: "Abierto",      color: "#7a4800", bg: "#fdf3e7" },
+        EN_PROCESO: { label: "En proceso",   color: "#1a5c8e", bg: "#e8f4ff" },
+        CERRADO:    { label: "Cerrado",      color: "#0f5c2b", bg: "#d4f5e2" },
+    }
+
+    function pqrBadge(estado) {
+        const e = PQR_ESTADO_MAP[estado] || { label: estado, color: "#555", bg: "#f0f0f0" }
+        return `<span class="pqr-estado-badge" style="color:${e.color};background:${e.bg};">${e.label}</span>`
+    }
+
+    function setCreateStatus(msg, kind = "info") {
+        const el = document.getElementById("pqrCreateStatus")
+        if (!el) return
+        el.textContent = msg
+        el.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   el.classList.add("is-error")
+        if (kind === "success") el.classList.add("is-success")
+    }
+
+    function setListStatus(msg, kind = "info") {
+        const el = document.getElementById("pqrListStatus")
+        if (!el) return
+        el.textContent = msg
+        el.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   el.classList.add("is-error")
+        if (kind === "success") el.classList.add("is-success")
+    }
+
+    // ── cargar lista de tickets ──
+    async function loadMyTickets() {
+        const listEl = document.getElementById("pqrList")
+        setListStatus("Cargando tickets…")
+        if (listEl) listEl.innerHTML = ""
+
+        try {
+            const res = await authFetch("/api/pqr/mis")
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if      (res.status === 401) setListStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                else                         setListStatus(err.detail || "No fue posible cargar los tickets.", "error")
+                return
+            }
+
+            const tickets = await res.json()
+            const statusEl = document.getElementById("pqrListStatus")
+            if (statusEl) statusEl.classList.add("hidden")
+
+            if (!listEl) return
+
+            if (!tickets.length) {
+                listEl.innerHTML = `
+                    <div class="my-orders-empty">
+                        <i class="fas fa-headset"></i>
+                        <p>No tienes tickets de soporte aún.</p>
+                        <p>Usa el formulario de arriba para crear uno.</p>
+                    </div>`
+                return
+            }
+
+            listEl.innerHTML = tickets.map(t => `
+                <article class="pqr-card">
+                    <div class="pqr-card-header">
+                        <div class="pqr-card-meta">
+                            <span class="pqr-tipo-tag">${PQR_TIPO_MAP[t.tipo] || t.tipo}</span>
+                            ${pqrBadge(t.estado)}
+                        </div>
+                        <span class="pqr-card-date">
+                            ${new Date(t.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                    </div>
+                    <p class="pqr-card-asunto">${t.asunto}</p>
+                    <p class="pqr-card-desc">${t.descripcion}</p>
+                    ${t.respuesta ? `
+                    <div class="pqr-respuesta">
+                        <p class="pqr-respuesta-label"><i class="fas fa-reply"></i> Respuesta del equipo</p>
+                        <p class="pqr-respuesta-texto">${t.respuesta}</p>
+                    </div>` : ""}
+                </article>
+            `).join("")
+
+        } catch (e) {
+            console.error("Error cargando tickets PQR:", e)
+            setListStatus("Error de conexión al cargar los tickets.", "error")
+        }
+    }
+
+    // ── envío del formulario ──
+    document.getElementById("pqrCreateForm").addEventListener("submit", async (e) => {
+        e.preventDefault()
+        const form       = e.currentTarget
+        const submitBtn  = form.querySelector(".pqr-submit-btn")
+        const tipo        = form.querySelector("#pqrTipo").value
+        const asunto      = form.querySelector("#pqrAsunto").value.trim()
+        const descripcion = form.querySelector("#pqrDescripcion").value.trim()
+
+        if (!tipo) {
+            setCreateStatus("Selecciona un tipo de ticket.", "error")
+            return
+        }
+
+        submitBtn.disabled = true
+        setCreateStatus("Enviando ticket…")
+
+        try {
+            const res = await authFetch("/api/pqr", {
+                method: "POST",
+                body: { tipo, asunto, descripcion },
+            })
+
+            if (res.ok) {
+                setCreateStatus("¡Ticket creado con éxito! Te responderemos pronto.", "success")
+                form.reset()
+                await loadMyTickets()
+                return
+            }
+
+            const err = await res.json().catch(() => ({}))
+            if      (res.status === 401) setCreateStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+            else if (res.status === 422) setCreateStatus("Revisa los campos: " + (err.detail?.[0]?.msg || "datos inválidos."), "error")
+            else                         setCreateStatus(err.detail || "No fue posible crear el ticket.", "error")
+            submitBtn.disabled = false
+
+        } catch (err) {
+            console.error("Error creando ticket PQR:", err)
+            setCreateStatus("Error de conexión al enviar el ticket.", "error")
+            submitBtn.disabled = false
+        }
+    })
+
+    await loadMyTickets()
+}
+
+// ── Gestión PQR — admin ───────────────────────────────────────────
+async function openAdminPQR() {
+    if (!currentUser || currentUser.role !== "admin") {
+        openPlaceholder("Gestión PQR", "Solo los administradores pueden gestionar tickets.")
+        return
+    }
+
+    openDashboard("Gestión PQR", `
+        <div class="pqr-admin-panel" id="pqrAdminPanel">
+            <div class="pqr-admin-filters">
+                <label class="pqr-label" for="pqrAdminFilter">Filtrar por estado</label>
+                <select class="pqr-select" id="pqrAdminFilter">
+                    <option value="">Todos</option>
+                    <option value="ABIERTO">Abierto</option>
+                    <option value="EN_PROCESO">En proceso</option>
+                    <option value="CERRADO">Cerrado</option>
+                </select>
+            </div>
+            <div class="buyer-cart-status" id="pqrAdminStatus">Cargando tickets…</div>
+            <div class="pqr-list" id="pqrAdminList"></div>
+        </div>
+    `)
+
+    const token     = localStorage.getItem("access_token")
+    const authFetch = makeOrderAuthFetch(token)
+
+    const PQR_TIPO_MAP = {
+        PETICION: "Petición",
+        QUEJA:    "Queja",
+        RECLAMO:  "Reclamo",
+        SOPORTE:  "Soporte técnico",
+    }
+
+    const PQR_ESTADO_MAP = {
+        ABIERTO:    { label: "Abierto",    color: "#7a4800", bg: "#fdf3e7" },
+        EN_PROCESO: { label: "En proceso", color: "#1a5c8e", bg: "#e8f4ff" },
+        CERRADO:    { label: "Cerrado",    color: "#0f5c2b", bg: "#d4f5e2" },
+    }
+
+    function pqrBadge(estado) {
+        const e = PQR_ESTADO_MAP[estado] || { label: estado, color: "#555", bg: "#f0f0f0" }
+        return `<span class="pqr-estado-badge" style="color:${e.color};background:${e.bg};">${e.label}</span>`
+    }
+
+    function setAdminStatus(msg, kind = "info") {
+        const el = document.getElementById("pqrAdminStatus")
+        if (!el) return
+        el.textContent = msg
+        el.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   el.classList.add("is-error")
+        if (kind === "success") el.classList.add("is-success")
+    }
+
+    let allTickets = []
+
+    function renderTickets(tickets) {
+        const listEl = document.getElementById("pqrAdminList")
+        if (!listEl) return
+
+        if (!tickets.length) {
+            listEl.innerHTML = `
+                <div class="my-orders-empty">
+                    <i class="fas fa-inbox"></i>
+                    <p>No hay tickets con este filtro.</p>
+                </div>`
+            return
+        }
+
+        listEl.innerHTML = tickets.map(t => `
+            <article class="pqr-card pqr-admin-card" data-ticket-id="${t.id || t._id}">
+                <div class="pqr-card-header">
+                    <div class="pqr-card-meta">
+                        <span class="pqr-tipo-tag">${PQR_TIPO_MAP[t.tipo] || t.tipo}</span>
+                        ${pqrBadge(t.estado)}
+                    </div>
+                    <span class="pqr-card-date">
+                        ${new Date(t.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                </div>
+                <p class="pqr-card-asunto">${t.asunto}</p>
+                <p class="pqr-card-desc">${t.descripcion}</p>
+
+                ${t.respuesta ? `
+                <div class="pqr-respuesta">
+                    <p class="pqr-respuesta-label"><i class="fas fa-reply"></i> Respuesta enviada</p>
+                    <p class="pqr-respuesta-texto">${t.respuesta}</p>
+                </div>` : ""}
+
+                <div class="pqr-admin-actions">
+                    <div class="pqr-admin-estado-row">
+                        <select class="pqr-select pqr-admin-estado-select" style="flex:1;">
+                            <option value="">Cambiar estado…</option>
+                            ${Object.entries(PQR_ESTADO_MAP).map(([val, { label }]) =>
+                                `<option value="${val}" ${t.estado === val ? "selected" : ""}>${label}</option>`
+                            ).join("")}
+                        </select>
+                        <button type="button" class="dashboard-action-btn pqr-admin-estado-btn"
+                                style="padding:8px 14px;font-size:0.85rem;background:var(--color-secondary);color:#fff;">
+                            Aplicar
+                        </button>
+                    </div>
+                    <div class="pqr-admin-feedback buyer-cart-status hidden"></div>
+
+                    ${!t.respuesta ? `
+                    <button type="button" class="pqr-responder-toggle" data-ticket-id="${t.id || t._id}">
+                        <i class="fas fa-reply"></i> Responder ticket
+                    </button>
+                    <div class="pqr-responder-form hidden">
+                        <textarea class="pqr-textarea pqr-respuesta-input"
+                                  placeholder="Escribe la respuesta al usuario…"
+                                  minlength="3" maxlength="3000" rows="3"></textarea>
+                        <div class="pqr-responder-actions">
+                            <button type="button" class="dashboard-action-btn pqr-responder-btn"
+                                    style="flex:1;justify-content:center;background:var(--color-primary-dark);color:#fff;">
+                                <i class="fas fa-paper-plane"></i> Enviar respuesta
+                            </button>
+                            <button type="button" class="pqr-responder-cancel">Cancelar</button>
+                        </div>
+                    </div>` : ""}
+                </div>
+            </article>
+        `).join("")
+
+        // ── event listeners por tarjeta ──
+        listEl.querySelectorAll(".pqr-admin-card").forEach(card => {
+            const ticketId  = card.dataset.ticketId
+            const feedbackEl = card.querySelector(".pqr-admin-feedback")
+
+            function setFeedback(msg, kind = "info") {
+                feedbackEl.textContent = msg
+                feedbackEl.classList.remove("hidden", "is-error", "is-success")
+                if (kind === "error")   feedbackEl.classList.add("is-error")
+                if (kind === "success") feedbackEl.classList.add("is-success")
+            }
+
+            // Cambiar estado
+            card.querySelector(".pqr-admin-estado-btn")?.addEventListener("click", async () => {
+                const select   = card.querySelector(".pqr-admin-estado-select")
+                const newEstado = select.value
+                if (!newEstado) {
+                    setFeedback("Selecciona un estado.", "error")
+                    return
+                }
+                setFeedback("Actualizando estado…")
+                try {
+                    const res = await authFetch(`/api/pqr/${ticketId}/estado`, {
+                        method: "PUT",
+                        body: { estado: newEstado },
+                    })
+                    if (res.ok) {
+                        setFeedback("Estado actualizado.", "success")
+                        // actualizar badge en la tarjeta sin recargar todo
+                        const e = PQR_ESTADO_MAP[newEstado] || { label: newEstado, color: "#555", bg: "#f0f0f0" }
+                        card.querySelector(".pqr-estado-badge").textContent = e.label
+                        card.querySelector(".pqr-estado-badge").style.color = e.color
+                        card.querySelector(".pqr-estado-badge").style.background = e.bg
+                        // actualizar en el array local
+                        const t = allTickets.find(t => (t.id || t._id) === ticketId)
+                        if (t) t.estado = newEstado
+                        return
+                    }
+                    const err = await res.json().catch(() => ({}))
+                    if      (res.status === 401) setFeedback("Sesión no válida.", "error")
+                    else if (res.status === 403) setFeedback("Sin permiso para cambiar el estado.", "error")
+                    else if (res.status === 404) setFeedback("Ticket no encontrado.", "error")
+                    else                         setFeedback(err.detail || "No fue posible actualizar.", "error")
+                } catch {
+                    setFeedback("Error de conexión.", "error")
+                }
+            })
+
+            // Toggle formulario de respuesta
+            card.querySelector(".pqr-responder-toggle")?.addEventListener("click", () => {
+                const form = card.querySelector(".pqr-responder-form")
+                const isHidden = form.classList.contains("hidden")
+                form.classList.toggle("hidden", !isHidden)
+                if (isHidden) form.querySelector("textarea")?.focus()
+            })
+
+            card.querySelector(".pqr-responder-cancel")?.addEventListener("click", () => {
+                card.querySelector(".pqr-responder-form")?.classList.add("hidden")
+            })
+
+            // Enviar respuesta
+            card.querySelector(".pqr-responder-btn")?.addEventListener("click", async () => {
+                const textarea  = card.querySelector(".pqr-respuesta-input")
+                const respuesta = textarea.value.trim()
+                const sendBtn   = card.querySelector(".pqr-responder-btn")
+
+                if (respuesta.length < 3) {
+                    setFeedback("La respuesta debe tener al menos 3 caracteres.", "error")
+                    return
+                }
+
+                sendBtn.disabled = true
+                setFeedback("Enviando respuesta…")
+
+                try {
+                    const res = await authFetch(`/api/pqr/${ticketId}/respuesta`, {
+                        method: "POST",
+                        body: { respuesta },
+                    })
+                    if (res.ok) {
+                        setFeedback("Respuesta enviada correctamente.", "success")
+                        // reemplazar sección de respuesta en la tarjeta
+                        const actionsEl = card.querySelector(".pqr-admin-actions")
+                        card.querySelector(".pqr-responder-toggle")?.remove()
+                        card.querySelector(".pqr-responder-form")?.remove()
+                        const respBlock = document.createElement("div")
+                        respBlock.className = "pqr-respuesta"
+                        respBlock.innerHTML = `
+                            <p class="pqr-respuesta-label"><i class="fas fa-reply"></i> Respuesta enviada</p>
+                            <p class="pqr-respuesta-texto">${respuesta}</p>`
+                        actionsEl.insertAdjacentElement("beforebegin", respBlock)
+                        const t = allTickets.find(t => (t.id || t._id) === ticketId)
+                        if (t) t.respuesta = respuesta
+                        return
+                    }
+                    const err = await res.json().catch(() => ({}))
+                    if      (res.status === 401) setFeedback("Sesión no válida.", "error")
+                    else if (res.status === 403) setFeedback("Sin permiso para responder.", "error")
+                    else if (res.status === 404) setFeedback("Ticket no encontrado.", "error")
+                    else                         setFeedback(err.detail || "No fue posible enviar la respuesta.", "error")
+                    sendBtn.disabled = false
+                } catch {
+                    setFeedback("Error de conexión.", "error")
+                    sendBtn.disabled = false
+                }
+            })
+        })
+    }
+
+    // ── filtro local ──
+    document.getElementById("pqrAdminFilter")?.addEventListener("change", (e) => {
+        const val     = e.target.value
+        const filtered = val ? allTickets.filter(t => t.estado === val) : allTickets
+        renderTickets(filtered)
+    })
+
+    // ── carga inicial ──
+    try {
+        const res = await authFetch("/api/pqr")
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            if      (res.status === 401) setAdminStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+            else if (res.status === 403) setAdminStatus("No tienes permiso para ver todos los tickets.", "error")
+            else                         setAdminStatus(err.detail || "No fue posible cargar los tickets.", "error")
+            return
+        }
+
+        allTickets = await res.json()
+        document.getElementById("pqrAdminStatus")?.classList.add("hidden")
+        renderTickets(allTickets)
+
+    } catch (e) {
+        console.error("Error cargando tickets admin PQR:", e)
+        setAdminStatus("Error de conexión al cargar los tickets.", "error")
+    }
+}

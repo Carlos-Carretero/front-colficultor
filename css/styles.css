@@ -678,39 +678,41 @@ textarea {
 .catalog-card-footer {
     margin-top: auto;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
     gap: var(--space-2);
 }
 
 .catalog-price {
-    display: inline-block;
-    border: 2px solid var(--color-secondary);
-    border-radius: 10px;
-    padding: 6px 12px;
-    color: var(--text-main);
-    font-weight: 700;
-    background: rgba(226, 144, 45, 0.08);
+    display: block;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    color: var(--color-secondary);
+    font-weight: 800;
+    font-size: 1.05rem;
+    background: transparent;
 }
 
 .btn-comprar {
-    border: 2px solid var(--color-secondary);
+    border: 2px solid var(--color-primary);
     border-radius: 10px;
-    background: transparent;
-    color: var(--text-main);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: #fff;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.2px;
-    padding: 10px 16px;
+    padding: 10px 8px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: filter var(--transition);
 }
 
 .btn-comprar:hover,
 .btn-comprar:focus-visible {
-    color: #fff;
-    border-color: var(--color-primary);
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    filter: brightness(0.9);
     outline: none;
 }
 
@@ -1421,14 +1423,7 @@ footer {
     }
 
     .catalog-card-footer {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .btn-comprar,
-    .catalog-price {
-        text-align: center;
-        width: 100%;
+        gap: var(--space-1);
     }
 
     .modal_content,
@@ -1741,5 +1736,728 @@ footer {
 @media (max-width: 420px) {
     .role-options {
         grid-template-columns: 1fr;
+    }
+}
+
+/* ── Mis reseñas ─────────────────────────────────────────────── */
+.my-reviews-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.my-reviews-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.my-review-card {
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.my-review-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+.review-stars {
+    display: flex;
+    gap: 2px;
+    line-height: 1;
+}
+
+.review-star {
+    font-size: 1.25rem;
+    color: var(--border);
+    transition: color var(--transition);
+}
+
+.review-star.filled {
+    color: var(--color-primary);
+}
+
+.my-review-date {
+    font-size: 0.8rem;
+    color: var(--text-soft);
+    white-space: nowrap;
+}
+
+.my-review-comentario {
+    font-size: 0.92rem;
+    color: var(--text-main);
+    line-height: 1.5;
+    overflow-wrap: break-word;
+}
+
+.my-review-product-id {
+    font-size: 0.78rem;
+    color: var(--text-soft);
+    overflow-wrap: break-word;
+}
+
+.my-review-product-id code {
+    font-family: monospace;
+    background: var(--border);
+    padding: 1px 4px;
+    border-radius: 4px;
+}
+
+@media (max-width: 480px) {
+    .my-review-card {
+        padding: var(--space-2);
+    }
+
+    .review-star {
+        font-size: 1.1rem;
+    }
+}
+
+/* ── Formulario de reseña inline (detalle de pedido) ─────────── */
+.review-open-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-primary-dark);
+    background: transparent;
+    border: 1.5px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+    white-space: nowrap;
+    touch-action: manipulation;
+    min-height: 36px;
+}
+
+.review-open-btn:hover,
+.review-open-btn.active {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.review-open-btn.reviewed {
+    border-color: var(--color-success);
+    color: #0f5c2b;
+    cursor: default;
+    opacity: 0.85;
+}
+
+.review-form-wrapper {
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin-top: var(--space-2);
+}
+
+.review-inline-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.review-form-title {
+    font-size: 0.9rem;
+    color: var(--text-main);
+}
+
+/* ── Rating de estrellas táctil ── */
+.star-rating {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 2px;
+}
+
+.star-rating input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.star-rating label {
+    font-size: 2rem;
+    color: var(--border);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: color 0.15s;
+    line-height: 1;
+    padding: 2px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* estrella seleccionada y todas las anteriores (en orden inverso) */
+.star-rating input:checked ~ label,
+.star-rating label:hover,
+.star-rating label:hover ~ label {
+    color: var(--color-primary);
+}
+
+.review-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--space-2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--text-main);
+    background: var(--surface);
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color var(--transition);
+}
+
+.review-textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.review-form-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.review-submit-btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 40px;
+}
+
+.review-cancel-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-soft);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    touch-action: manipulation;
+    min-height: 40px;
+}
+
+.review-cancel-btn:hover {
+    color: var(--text-main);
+}
+
+@media (max-width: 480px) {
+    .review-form-wrapper {
+        padding: var(--space-2);
+    }
+
+    .star-rating label {
+        font-size: 1.75rem;
+    }
+
+    .review-form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .review-cancel-btn {
+        text-align: center;
+    }
+}
+
+/* ── Acciones de tarjeta de catálogo ─────────────────────────── */
+.catalog-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1);
+}
+
+.catalog-detail-btn {
+    border: 2px solid var(--color-secondary);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--color-secondary);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    padding: 10px 8px;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
+    touch-action: manipulation;
+    min-height: 44px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.catalog-detail-btn:hover,
+.catalog-detail-btn:focus-visible {
+    background: var(--color-secondary);
+    color: #fff;
+    outline: none;
+}
+
+/* ── Panel de detalle de producto ────────────────────────────── */
+.product-detail-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.product-detail-img-wrapper {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: #e9ecef;
+}
+
+.product-detail-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.product-detail-img-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--surface-soft);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--border);
+    font-size: 2.5rem;
+}
+
+.product-detail-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.product-detail-region {
+    font-size: 0.82rem;
+    color: var(--text-soft);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.product-detail-price {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--color-secondary);
+}
+
+.product-detail-stock {
+    font-size: 0.85rem;
+    color: var(--text-soft);
+}
+
+.product-detail-desc {
+    font-size: 0.92rem;
+    color: var(--text-main);
+    line-height: 1.55;
+    overflow-wrap: break-word;
+}
+
+/* ── Sección de reseñas en detalle de producto ───────────────── */
+.product-reviews-section {
+    border-top: 1.5px solid var(--border);
+    padding-top: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.product-reviews-heading {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+}
+
+.reviews-summary-box {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+}
+
+.reviews-avg-score {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-secondary);
+    line-height: 1;
+}
+
+.reviews-avg-stars {
+    display: flex;
+    gap: 2px;
+}
+
+.reviews-avg-stars .review-star {
+    font-size: 1.4rem;
+}
+
+.reviews-total {
+    font-size: 0.85rem;
+    color: var(--text-soft);
+    margin-left: auto;
+}
+
+.reviews-loading,
+.reviews-empty {
+    font-size: 0.88rem;
+    color: var(--text-soft);
+    font-style: italic;
+}
+
+.product-reviews-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.product-review-item {
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.product-review-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+@media (max-width: 480px) {
+    .reviews-summary-box {
+        padding: var(--space-2);
+    }
+
+    .reviews-avg-score {
+        font-size: 1.6rem;
+    }
+
+    .product-review-item {
+        padding: var(--space-2);
+    }
+}
+
+/* ── Panel PQR — comprador ───────────────────────────────────── */
+.pqr-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+.pqr-section-heading {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 var(--space-2);
+    padding-bottom: var(--space-1);
+    border-bottom: 1.5px solid var(--border);
+}
+
+/* Formulario de creación */
+.pqr-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.pqr-form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pqr-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.pqr-select,
+.pqr-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px var(--space-2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--text-main);
+    background: var(--surface);
+    transition: border-color var(--transition);
+    min-height: 44px;
+}
+
+.pqr-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px var(--space-2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--text-main);
+    background: var(--surface);
+    resize: vertical;
+    min-height: 96px;
+    transition: border-color var(--transition);
+}
+
+.pqr-select:focus,
+.pqr-input:focus,
+.pqr-textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.pqr-submit-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+/* Lista de tickets */
+.pqr-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.pqr-card {
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.pqr-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+.pqr-card-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+}
+
+.pqr-tipo-tag {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--color-primary-dark);
+    background: rgba(226, 144, 45, 0.12);
+    border: 1px solid rgba(226, 144, 45, 0.3);
+    border-radius: 6px;
+    padding: 2px 8px;
+}
+
+.pqr-estado-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 6px;
+    padding: 2px 8px;
+}
+
+.pqr-card-date {
+    font-size: 0.78rem;
+    color: var(--text-soft);
+    white-space: nowrap;
+}
+
+.pqr-card-asunto {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-main);
+    overflow-wrap: break-word;
+}
+
+.pqr-card-desc {
+    font-size: 0.88rem;
+    color: var(--text-soft);
+    line-height: 1.5;
+    overflow-wrap: break-word;
+}
+
+.pqr-respuesta {
+    background: var(--surface);
+    border-left: 3px solid var(--color-primary);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: var(--space-2);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pqr-respuesta-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--color-primary-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pqr-respuesta-texto {
+    font-size: 0.88rem;
+    color: var(--text-main);
+    line-height: 1.5;
+    overflow-wrap: break-word;
+}
+
+@media (max-width: 480px) {
+    .pqr-card {
+        padding: var(--space-2);
+    }
+
+    .pqr-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* ── Gestión PQR — admin ─────────────────────────────────────── */
+.pqr-admin-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.pqr-admin-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pqr-admin-card {
+    gap: var(--space-3);
+}
+
+.pqr-admin-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-2);
+    margin-top: var(--space-1);
+}
+
+.pqr-admin-estado-row {
+    display: flex;
+    gap: var(--space-1);
+    align-items: center;
+}
+
+.pqr-responder-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--color-primary-dark);
+    background: transparent;
+    border: 1.5px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    cursor: pointer;
+    align-self: flex-start;
+    transition: background var(--transition), color var(--transition);
+    touch-action: manipulation;
+    min-height: 36px;
+}
+
+.pqr-responder-toggle:hover {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.pqr-responder-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.pqr-responder-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.pqr-responder-cancel {
+    background: transparent;
+    border: none;
+    color: var(--text-soft);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    min-height: 40px;
+    touch-action: manipulation;
+}
+
+.pqr-responder-cancel:hover {
+    color: var(--text-main);
+}
+
+@media (max-width: 480px) {
+    .pqr-admin-estado-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pqr-responder-toggle {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .pqr-responder-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pqr-responder-cancel {
+        text-align: center;
     }
 }
