@@ -1599,25 +1599,174 @@ function openProfile() {
 }
 
 function openMessages() {
+    if (!currentUser) {
+        openPlaceholder("Mensajes", "Inicia sesión para ver tus notificaciones.")
+        return
+    }
+
+    const roleLabel = currentUser.role === "comprador"
+        ? "comprador"
+        : (currentUser.role === "caficultor" ? "caficultor" : "admin")
+
     openDashboard(
         "Mensajes",
         `
-            <div class="dashboard-section">
-                <p>No tienes mensajes nuevos por ahora.</p>
-                <p>Cuando el sistema encuentre notificaciones o respuestas, aparecerán aquí.</p>
-                <div class="dashboard-section" style="margin-top:16px;">
-                    <button type="button" class="dashboard-action-btn" id="dashboardRefreshMessagesBtn">Actualizar mensajes</button>
-                </div>
+        <div class="my-orders-panel" id="messagesPanel">
+            <div class="buyer-cart-status" id="messagesStatus">Cargando notificaciones...</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0;">
+                <button type="button" class="dashboard-action-btn" id="messagesRefreshBtn">Actualizar</button>
+                <button type="button" class="dashboard-action-btn" id="messagesReadAllBtn">Marcar todo como leído</button>
+                <span id="messagesUnreadChip" style="font-size:12px;font-weight:700;color:#4B2E2B;background:#f7ecdd;border:1px solid #edd4b7;border-radius:999px;padding:6px 10px;">
+                    0 sin leer
+                </span>
             </div>
+            <div class="my-orders-list" id="messagesList"></div>
+            <p style="font-size:12px;color:#777;margin-top:10px;">Bandeja de notificaciones para rol: <strong>${roleLabel}</strong>.</p>
+        </div>
         `
-    );
+    )
 
-    const refreshBtn = document.getElementById("dashboardRefreshMessagesBtn");
-    if (refreshBtn) {
-        refreshBtn.addEventListener("click", () => {
-            openMessages();
-        });
+    const token = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("messagesStatus")
+    const listEl = document.getElementById("messagesList")
+    const unreadChipEl = document.getElementById("messagesUnreadChip")
+    const refreshBtn = document.getElementById("messagesRefreshBtn")
+    const readAllBtn = document.getElementById("messagesReadAllBtn")
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error") statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
     }
+
+    function formatTypeLabel(type) {
+        const map = {
+            NEW_ORDER_FOR_FARMER: "Nueva orden",
+            ORDER_CREATED_FOR_BUYER: "Orden creada",
+            ORDER_STATUS_FOR_BUYER: "Cambio de estado",
+            PAYMENT_STATUS_FOR_BUYER: "Resultado de pago",
+            PAYMENT_APPROVED_FOR_FARMER: "Pago confirmado",
+            NEW_PQR_FOR_ADMIN: "Nuevo PQR",
+            PQR_STATUS_FOR_USER: "Estado PQR",
+            PQR_ANSWER_FOR_USER: "Respuesta PQR",
+        }
+        return map[type] || type
+    }
+
+    function shortId(value) {
+        if (!value) return ""
+        return String(value).slice(-6).toUpperCase()
+    }
+
+    async function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        if (opts.body) headers["Content-Type"] = "application/json"
+        return fetch(`${API_CONFIG.BASE_URL}${path}`, {
+            method: opts.method || "GET",
+            headers,
+            body: opts.body ? JSON.stringify(opts.body) : undefined,
+        })
+    }
+
+    async function markOneAsRead(notificationId) {
+        const res = await authFetch(`/api/notificaciones/${notificationId}/leer`, { method: "PUT" })
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            throw new Error(err.detail || "No se pudo marcar como leída")
+        }
+    }
+
+    async function markAllAsRead() {
+        const res = await authFetch("/api/notificaciones/leer-todas", { method: "PUT" })
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            throw new Error(err.detail || "No se pudo marcar todo como leído")
+        }
+    }
+
+    async function loadNotifications() {
+        setStatus("Cargando notificaciones...")
+        try {
+            const res = await authFetch("/api/notificaciones?limit=100")
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                else setStatus(err.detail || "No fue posible cargar notificaciones.", "error")
+                return
+            }
+
+            const payload = await res.json()
+            const items = payload.items || []
+            const unread = Number(payload.unread || 0)
+            unreadChipEl.textContent = `${unread} sin leer`
+            statusEl.classList.add("hidden")
+
+            if (!items.length) {
+                listEl.innerHTML = `
+                    <div class="my-orders-empty">
+                        <i class="fas fa-bell-slash"></i>
+                        <p>No tienes notificaciones por ahora.</p>
+                    </div>`
+                return
+            }
+
+            listEl.innerHTML = items.map(n => `
+                <article class="my-order-card" data-notification-id="${n._id}">
+                    <div class="my-order-card-header">
+                        <div>
+                            <p class="my-order-id">${n.title}</p>
+                            <p class="my-order-date">${new Date(n.createdAt).toLocaleString("es-CO")}</p>
+                        </div>
+                        <span class="order-estado-badge" style="color:${n.isRead ? "#666" : "#0f5c2b"};background:${n.isRead ? "#f0f0f0" : "#dff6e8"};">
+                            ${n.isRead ? "Leída" : "Nueva"}
+                        </span>
+                    </div>
+                    <p class="my-order-items-preview">${n.message}</p>
+                    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:10px;">
+                        <span style="font-size:12px;color:#777;">Tipo: ${formatTypeLabel(n.type)}${n.meta?.orderId ? ` · Pedido #${shortId(n.meta.orderId)}` : ""}${n.meta?.ticketId ? ` · Ticket #${shortId(n.meta.ticketId)}` : ""}</span>
+                        ${!n.isRead ? `
+                            <button type="button" class="dashboard-action-btn mark-read-btn" style="padding:7px 10px;font-size:0.82rem;">Marcar leída</button>
+                        ` : ""}
+                    </div>
+                </article>
+            `).join("")
+
+            listEl.querySelectorAll(".mark-read-btn").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    const id = btn.closest("[data-notification-id]")?.dataset.notificationId
+                    if (!id) return
+                    btn.disabled = true
+                    try {
+                        await markOneAsRead(id)
+                        await loadNotifications()
+                    } catch (e) {
+                        showAppToast(e.message || "No se pudo marcar como leída", "error")
+                        btn.disabled = false
+                    }
+                })
+            })
+        } catch (e) {
+            console.error("Error cargando notificaciones:", e)
+            setStatus("Error de conexión al cargar notificaciones.", "error")
+        }
+    }
+
+    refreshBtn?.addEventListener("click", loadNotifications)
+    readAllBtn?.addEventListener("click", async () => {
+        readAllBtn.disabled = true
+        try {
+            await markAllAsRead()
+            showAppToast("Se marcaron todas las notificaciones como leídas.", "success")
+            await loadNotifications()
+        } catch (e) {
+            showAppToast(e.message || "No se pudo marcar todo como leído.", "error")
+        } finally {
+            readAllBtn.disabled = false
+        }
+    })
+
+    loadNotifications()
 }
 
 function openSettings() {
