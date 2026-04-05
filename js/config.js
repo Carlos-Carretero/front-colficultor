@@ -14,8 +14,8 @@ const API_CONFIG = (function () {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
 
-    const BASE_URL = isLocal
-        ? 'http://localhost:8000'
+    const BASE_URL = hostname
+        ? 'https://back-colficultor.onrender.com'
         : `${window.location.protocol}//${window.location.host}`;
 
     return {
