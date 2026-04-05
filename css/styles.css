@@ -2461,3 +2461,22 @@ footer {
         text-align: center;
     }
 }
+
+/* ── Ajuste móvil catálogo (sin afectar desktop) ─────────────── */
+@media (max-width: 480px) {
+    .catalog-card-actions {
+        grid-template-columns: 1fr !important;
+        width: 100%;
+    }
+
+    .catalog-card-actions .catalog-detail-btn,
+    .catalog-card-actions .catalog-add-btn,
+    .catalog-card-actions .btn-comprar {
+        width: 100%;
+        min-width: 0;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        justify-content: center;
+        text-align: center;
+    }
+}
