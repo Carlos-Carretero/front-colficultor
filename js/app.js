@@ -774,8 +774,8 @@ async function openBuyerCart() {
         return fetch(`${API_CONFIG.BASE_URL}${path}`, options)
     }
 
-    async function loadCart({ message = "", kind = "info" } = {}) {
-        if (inFlight) return
+    async function loadCart({ message = "", kind = "info", force = false } = {}) {
+        if (inFlight && !force) return
         inFlight = true
         setCartStatus("Cargando carrito...")
         orderBtn.disabled = true
@@ -898,6 +898,7 @@ async function openBuyerCart() {
             await loadCart({
                 message: `Orden creada: ${order._id || order.id}. Estado: ${order.estado}.`,
                 kind: "success",
+                force: true,
             })
         } catch (error) {
             console.error("Error creando orden:", error)
@@ -1062,10 +1063,17 @@ async function openMyOrders() {
                 </p>
                 <div class="my-order-card-footer">
                     <span class="my-order-total">${formatCop(Number(order.total || 0))}</span>
-                    <button type="button" class="dashboard-action-btn my-order-detail-btn"
-                            style="padding:8px 16px;font-size:0.85rem;">
-                        Ver detalle
-                    </button>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button type="button" class="dashboard-action-btn my-order-detail-btn"
+                                style="padding:8px 16px;font-size:0.85rem;">
+                            Ver detalle
+                        </button>
+                        ${order.estado === "PENDIENTE_PAGO" ? `
+                        <button type="button" class="dashboard-action-btn my-order-delete-btn"
+                                style="padding:8px 16px;font-size:0.85rem;background:#8e2d1c;color:white;">
+                            Eliminar
+                        </button>` : ""}
+                    </div>
                 </div>
             </article>
         `).join("")
@@ -1074,6 +1082,38 @@ async function openMyOrders() {
             const orderId = btn.closest("[data-order-id]").dataset.orderId
             const order   = orders.find(o => o._id === orderId)
             btn.addEventListener("click", () => openOrderDetail(order, authFetch))
+        })
+
+        listEl.querySelectorAll(".my-order-delete-btn").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const card = btn.closest("[data-order-id]")
+                const orderId = card?.dataset.orderId
+                if (!orderId) return
+
+                const confirmed = confirm("¿Deseas eliminar este pedido pendiente de pago?")
+                if (!confirmed) return
+
+                btn.disabled = true
+                try {
+                    const res = await authFetch(`/api/ordenes/${orderId}`, { method: "DELETE" })
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}))
+                        if (res.status === 409) setStatus(err.detail || "Solo se pueden eliminar pedidos pendientes de pago.", "error")
+                        else if (res.status === 403) setStatus("No tienes permiso para eliminar este pedido.", "error")
+                        else if (res.status === 404) setStatus("Pedido no encontrado.", "error")
+                        else setStatus(err.detail || "No fue posible eliminar el pedido.", "error")
+                        btn.disabled = false
+                        return
+                    }
+
+                    setStatus("Pedido eliminado correctamente.", "success")
+                    await openMyOrders()
+                } catch (e) {
+                    console.error("Error eliminando pedido:", e)
+                    setStatus("Error de conexión al eliminar el pedido.", "error")
+                    btn.disabled = false
+                }
+            })
         })
 
     } catch (e) {
@@ -2157,8 +2197,8 @@ async function openMySales() {
 
     // Transiciones válidas para el caficultor
     const NEXT_STATES = {
-        PAGADA:         [{ value: "EN_PREPARACION", label: "En preparación" }, { value: "CANCELADA", label: "Cancelar orden" }],
-        EN_PREPARACION: [{ value: "ENVIADA", label: "Enviada" }, { value: "CANCELADA", label: "Cancelar orden" }],
+        PAGADA:         [{ value: "EN_PREPARACION", label: "En preparación" }],
+        EN_PREPARACION: [{ value: "ENVIADA", label: "Enviada" }],
         ENVIADA:        [{ value: "ENTREGADA", label: "Entregada" }],
     }
 
@@ -2276,122 +2316,267 @@ async function openMySales() {
 }
 
 async function openMyStats() {
+    if (!currentUser || currentUser.role !== "caficultor") {
+        openPlaceholder("Métricas y Rendimiento", "Solo los caficultores pueden ver esta sección.")
+        return
+    }
+
+    const today = new Date()
+    const monthAgo = new Date(today)
+    monthAgo.setDate(today.getDate() - 30)
+    const toIsoDate = (d) => d.toISOString().slice(0, 10)
+
     openDashboard(
         "Métricas y Rendimiento",
         `
-            <div class="stats-dashboard" style="display:flex; flex-direction:column; gap:25px;">
-                
-                <!-- KPI Cards -->
-                <div class="stats-kpi-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:15px;">
-                    <div class="kpi-card" style="background:linear-gradient(135deg, #E2902D 0%, #d17e1f 100%); color:white; padding:20px; border-radius:12px; box-shadow:0 6px 15px rgba(226, 144, 45, 0.3); display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                        <i class="fas fa-shopping-cart" style="font-size:24px; margin-bottom:10px; opacity:0.9;"></i>
-                        <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">Ventas Totales</span>
-                        <span style="font-size:28px; font-weight:700; margin-top:5px; font-family:'Poppins', sans-serif;">248</span>
-                    </div>
-
-                    <div class="kpi-card" style="background:#FFFFFF; border:2px solid #E3E3E3; padding:20px; border-radius:12px; display:flex; flex-direction:column; justify-content:center; align-items:center; color:#4B2E2B;">
-                        <i class="fas fa-wallet" style="font-size:24px; color:#E2902D; margin-bottom:10px;"></i>
-                        <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:#878787;">Ingresos Generados</span>
-                        <span style="font-size:24px; font-weight:700; margin-top:5px; font-family:'Poppins', sans-serif;">$12.5M</span>
-                    </div>
-
-                    <div class="kpi-card" style="background:#FFFFFF; border:2px solid #E3E3E3; padding:20px; border-radius:12px; display:flex; flex-direction:column; justify-content:center; align-items:center; color:#4B2E2B;">
-                        <i class="fas fa-star" style="font-size:24px; color:#f59e0b; margin-bottom:10px;"></i>
-                        <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:#878787;">Calificación Promedio</span>
-                        <span style="font-size:28px; font-weight:700; margin-top:5px; font-family:'Poppins', sans-serif;">4.8 <span style="font-size:14px; color:#878787;">/5</span></span>
-                    </div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <label style="font-size:12px;color:#666;font-weight:600;">Desde</label>
+                    <input id="statsDateFrom" type="date" value="${toIsoDate(monthAgo)}" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;">
                 </div>
-
-                <!-- Graphic Placeholder (Ventas por día/mes) -->
-                <div class="stats-chart-section" style="background:#FFFFFF; border:2px solid #E3E3E3; border-radius:12px; padding:20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-                        <h3 style="margin:0; font-size:15px; color:#4B2E2B; font-weight:700;"><i class="fas fa-chart-line" style="color:#E2902D; margin-right:8px;"></i> Comportamiento de Ventas</h3>
-                        <select style="padding:8px 14px; border:2px solid #E3E3E3; border-radius:8px; font-family:'Poppins', sans-serif; font-size:12px; font-weight:600; color:#4B2E2B; outline:none; cursor:pointer; background:transparent;">
-                            <option>Último Mes</option>
-                            <option>Últimos 6 Meses</option>
-                            <option>Este Año</option>
-                        </select>
-                    </div>
-                    
-                    <!-- CSS Bar Chart (Visual Dummy) -->
-                    <div style="display:flex; align-items:flex-end; gap:8px; height:150px; border-bottom:2px solid #f0f0f0; padding-bottom:5px; margin-top:10px;">
-                        <div class="chart-bar" style="flex:1; background:rgba(226, 144, 45, 0.2); border-radius:6px 6px 0 0; height:35%; min-width:20px; transition: all 0.3s ease;"></div>
-                        <div class="chart-bar" style="flex:1; background:rgba(226, 144, 45, 0.3); border-radius:6px 6px 0 0; height:50%; min-width:20px; transition: all 0.3s ease;"></div>
-                        <div class="chart-bar" style="flex:1; background:rgba(226, 144, 45, 0.5); border-radius:6px 6px 0 0; height:20%; min-width:20px; transition: all 0.3s ease;"></div>
-                        <div class="chart-bar" style="flex:1; background:rgba(226, 144, 45, 0.7); border-radius:6px 6px 0 0; height:80%; min-width:20px; transition: all 0.3s ease;"></div>
-                        <div class="chart-active-bar" style="flex:1; background:linear-gradient(0deg, #E2902D 0%, #d17e1f 100%); border-radius:6px 6px 0 0; height:100%; min-width:20px; position:relative; box-shadow:0 -4px 10px rgba(226, 144, 45, 0.3);"></div>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; font-size:11px; color:#878787; font-weight:600; margin-top:8px; padding:0 5px;">
-                        <span>Sem 1</span><span>Sem 2</span><span>Sem 3</span><span>Sem 4</span><span style="color:#E2902D;">Actual</span>
-                    </div>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <label style="font-size:12px;color:#666;font-weight:600;">Hasta</label>
+                    <input id="statsDateTo" type="date" value="${toIsoDate(today)}" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;">
                 </div>
-
-                <!-- Products Split View -->
-                <div class="stats-products-split" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:20px;">
-                    
-                    <!-- Más vendidos -->
-                    <div class="stats-top-products" style="background:#FFFFFF; border:2px solid #E3E3E3; border-radius:12px; padding:20px;">
-                        <h3 style="margin:0 0 15px 0; font-size:15px; color:#4B2E2B; font-weight:700;"><i class="fas fa-fire" style="color:#ef4444; margin-right:8px;"></i> Productos más vendidos</h3>
-                        <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px;">
-                            <li style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f9f9f9; padding-bottom:10px;">
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <div style="background:rgba(226,144,45,0.1); color:#E2902D; width:28px; height:28px; display:flex; justify-content:center; align-items:center; border-radius:50%; font-weight:700; font-size:13px;">1</div>
-                                    <span style="font-size:13px; color:#4B2E2B; font-weight:600;">Café Arábico Especial</span>
-                                </div>
-                                <span style="font-size:12px; font-weight:700; color:#878787;">120 und.</span>
-                            </li>
-                            <li style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f9f9f9; padding-bottom:10px;">
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <div style="background:#f0f0f0; color:#878787; width:28px; height:28px; display:flex; justify-content:center; align-items:center; border-radius:50%; font-weight:700; font-size:13px;">2</div>
-                                    <span style="font-size:13px; color:#4B2E2B; font-weight:600;">Caturra Tostado Medio</span>
-                                </div>
-                                <span style="font-size:12px; font-weight:700; color:#878787;">85 und.</span>
-                            </li>
-                            <li style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <div style="background:#f0f0f0; color:#878787; width:28px; height:28px; display:flex; justify-content:center; align-items:center; border-radius:50%; font-weight:700; font-size:13px;">3</div>
-                                    <span style="font-size:13px; color:#4B2E2B; font-weight:600;">Castilla Exportación</span>
-                                </div>
-                                <span style="font-size:12px; font-weight:700; color:#878787;">43 und.</span>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <!-- Sin movimiento -->
-                    <div class="stats-dead-products" style="background:#FFFFFF; border:2px solid #E3E3E3; border-radius:12px; padding:20px;">
-                        <h3 style="margin:0 0 5px 0; font-size:15px; color:#4B2E2B; font-weight:700;"><i class="fas fa-exclamation-circle" style="color:#E2902D; margin-right:8px;"></i> Productos sin rotación</h3>
-                        <p style="font-size:12px; color:#878787; margin-bottom:15px; line-height:1.4;">Lotes que no han registrado ventas recientemente.</p>
-                        <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px;">
-                            <li style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:#fff4e1; border-radius:8px; border-left:4px solid #E2902D;">
-                                <span style="font-size:13px; color:#4B2E2B; font-weight:600;">Café Borbón - Lote A</span>
-                                <span style="font-size:11px; font-weight:700; background:#E2902D; color:white; padding:3px 8px; border-radius:12px;">+60 días</span>
-                            </li>
-                            <li style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:#f9f9f9; border-radius:8px; border-left:4px solid #dcdcdc;">
-                                <span style="font-size:13px; color:#4B2E2B; font-weight:600;">Libérica Verde 5kg</span>
-                                <span style="font-size:11px; font-weight:600; color:#878787;"><i class="fas fa-clock"></i> 32 días</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
+                <button id="statsApplyBtn" class="dashboard-action-btn" style="padding:9px 14px;">Aplicar filtro</button>
+                <button id="statsExportCsvBtn" class="dashboard-action-btn" style="padding:9px 14px;background:#1f7a3f;color:#fff;">Exportar CSV</button>
+                <button id="statsExportPdfBtn" class="dashboard-action-btn" style="padding:9px 14px;background:#8b3c1a;color:#fff;">Exportar PDF</button>
+                <div id="statsStatus" class="buyer-cart-status" style="margin-left:auto;min-width:220px;">Cargando métricas...</div>
             </div>
-            
-            <style>
-                .kpi-card {
-                    transition: all 0.3s ease;
-                }
-                .kpi-card:hover {
-                    transform: translateY(-4px);
-                    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08) !important;
-                    border-color: rgba(226, 144, 45, 0.3);
-                }
-                .chart-bar:hover {
-                    opacity: 0.8;
-                    cursor: pointer;
-                }
-            </style>
+
+            <div id="statsKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;"></div>
+            <div id="statsDaily" style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">
+                <div id="statsTopProducts" style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"></div>
+                <div id="statsByStatus" style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"></div>
+            </div>
+        </div>
         `
-    );
+    )
+
+    const token = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("statsStatus")
+    const fromEl = document.getElementById("statsDateFrom")
+    const toEl = document.getElementById("statsDateTo")
+    const kpiEl = document.getElementById("statsKpis")
+    const dailyEl = document.getElementById("statsDaily")
+    const topEl = document.getElementById("statsTopProducts")
+    const byStatusEl = document.getElementById("statsByStatus")
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("is-error", "is-success")
+        if (kind === "error") statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    async function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        const options = { method: opts.method || "GET", headers }
+        return fetch(`${API_CONFIG.BASE_URL}${path}`, options)
+    }
+
+    function toBogotaDateKey(dateValue) {
+        const d = new Date(dateValue)
+        if (Number.isNaN(d.getTime())) return null
+        const parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "America/Bogota",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).formatToParts(d)
+        const year = parts.find(p => p.type === "year")?.value
+        const month = parts.find(p => p.type === "month")?.value
+        const day = parts.find(p => p.type === "day")?.value
+        if (!year || !month || !day) return null
+        return `${year}-${month}-${day}`
+    }
+
+    function inRange(dateValue, fromValue, toValue) {
+        const key = toBogotaDateKey(dateValue)
+        if (!key) return false
+        return key >= fromValue && key <= toValue
+    }
+
+    function buildFilenameFromHeader(contentDisposition, fallback) {
+        const match = /filename=([^;]+)/i.exec(contentDisposition || "")
+        if (!match) return fallback
+        return match[1].replace(/"/g, "").trim() || fallback
+    }
+
+    async function exportReport(kind) {
+        const desde = fromEl.value
+        const hasta = toEl.value
+        if (!desde || !hasta || desde > hasta) {
+            setStatus("Rango de fechas inválido para exportar.", "error")
+            return
+        }
+
+        const btn = kind === "csv"
+            ? document.getElementById("statsExportCsvBtn")
+            : document.getElementById("statsExportPdfBtn")
+        const ext = kind === "csv" ? "csv" : "pdf"
+        const endpoint = kind === "csv" ? "/api/reportes/mis-ventas.csv" : "/api/reportes/mis-ventas.pdf"
+        const prev = btn.textContent
+        btn.disabled = true
+        btn.textContent = "Generando..."
+        setStatus(`Generando reporte ${ext.toUpperCase()}...`)
+
+        try {
+            const res = await authFetch(`${endpoint}?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`)
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                setStatus(err.detail || `No fue posible exportar ${ext.toUpperCase()}.`, "error")
+                return
+            }
+
+            const blob = await res.blob()
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.href = url
+            a.download = buildFilenameFromHeader(
+                res.headers.get("Content-Disposition"),
+                `mis_ventas_${desde}_${hasta}.${ext}`
+            )
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            URL.revokeObjectURL(url)
+            setStatus(`Reporte ${ext.toUpperCase()} descargado.`, "success")
+        } catch (e) {
+            console.error(`Error exportando ${ext}:`, e)
+            setStatus(`Error de conexión exportando ${ext.toUpperCase()}.`, "error")
+        } finally {
+            btn.disabled = false
+            btn.textContent = prev
+        }
+    }
+
+    function renderStats(orders, fromValue, toValue) {
+        const filtered = orders.filter(o => inRange(o.createdAt, fromValue, toValue))
+
+        const totalOrders = filtered.length
+        const totalIncome = filtered.reduce((acc, o) => acc + Number(o.caficultor_subtotal || 0), 0)
+        const paidLike = filtered.filter(o => ["PAGADA", "EN_PREPARACION", "ENVIADA", "ENTREGADA"].includes(o.estado))
+        const paidIncome = paidLike.reduce((acc, o) => acc + Number(o.caficultor_subtotal || 0), 0)
+        const avgTicket = totalOrders ? (totalIncome / totalOrders) : 0
+
+        kpiEl.innerHTML = `
+            <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"><div style="font-size:12px;color:#777;">Pedidos con tus productos</div><div style="font-size:26px;font-weight:700;color:#4B2E2B;">${totalOrders}</div></div>
+            <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"><div style="font-size:12px;color:#777;">Ingresos (subtotal propio)</div><div style="font-size:26px;font-weight:700;color:#4B2E2B;">${formatCop(totalIncome)}</div></div>
+            <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"><div style="font-size:12px;color:#777;">Ingresos pagados/en curso</div><div style="font-size:26px;font-weight:700;color:#4B2E2B;">${formatCop(paidIncome)}</div></div>
+            <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"><div style="font-size:12px;color:#777;">Ticket promedio</div><div style="font-size:26px;font-weight:700;color:#4B2E2B;">${formatCop(avgTicket)}</div></div>
+        `
+
+        const byDay = {}
+        filtered.forEach(order => {
+            const day = toBogotaDateKey(order.createdAt)
+            if (!day) return
+            byDay[day] = (byDay[day] || 0) + Number(order.caficultor_subtotal || 0)
+        })
+        const dayRows = Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0])).slice(-10)
+        const maxDayValue = Math.max(1, ...dayRows.map(([, v]) => Number(v)))
+        dailyEl.innerHTML = `
+            <h3 style="margin:0 0 10px 0;font-size:15px;color:#4B2E2B;">Ventas por día (últimos 10 días con ventas)</h3>
+            ${dayRows.length ? dayRows.map(([day, value]) => `
+                <div style="display:grid;grid-template-columns:110px 1fr 120px;gap:8px;align-items:center;margin:7px 0;">
+                    <span style="font-size:12px;color:#666;">${day}</span>
+                    <div style="height:10px;background:#f3e6d9;border-radius:999px;overflow:hidden;">
+                        <div style="height:100%;width:${Math.max(4, (Number(value) / maxDayValue) * 100)}%;background:#E2902D;"></div>
+                    </div>
+                    <span style="font-size:12px;font-weight:700;color:#4B2E2B;">${formatCop(Number(value))}</span>
+                </div>
+            `).join("") : `<p style="margin:0;color:#777;">Sin ventas en el rango seleccionado.</p>`}
+        `
+
+        const productAgg = {}
+        filtered.forEach(order => {
+            ;(order.caficultor_items || []).forEach(item => {
+                const key = item.productId || item.nombreSnapshot || "producto"
+                if (!productAgg[key]) {
+                    productAgg[key] = {
+                        nombre: item.nombreSnapshot || "Producto",
+                        cantidad: 0,
+                        ingresos: 0,
+                    }
+                }
+                productAgg[key].cantidad += Number(item.cantidad || 0)
+                productAgg[key].ingresos += Number(item.subtotal || 0)
+            })
+        })
+        const topProducts = Object.values(productAgg)
+            .sort((a, b) => (b.cantidad - a.cantidad) || (b.ingresos - a.ingresos))
+            .slice(0, 5)
+
+        topEl.innerHTML = `
+            <h3 style="margin:0 0 10px 0;font-size:15px;color:#4B2E2B;">Top productos vendidos</h3>
+            ${topProducts.length ? `
+            <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;">
+                ${topProducts.map((p, idx) => `
+                    <li style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #f1f1f1;padding-bottom:7px;">
+                        <span style="font-size:13px;color:#4B2E2B;">${idx + 1}. ${p.nombre}</span>
+                        <span style="font-size:12px;color:#666;">${p.cantidad} und | ${formatCop(p.ingresos)}</span>
+                    </li>
+                `).join("")}
+            </ul>` : `<p style="margin:0;color:#777;">No hay productos vendidos en este rango.</p>`}
+        `
+
+        const statusCount = {}
+        filtered.forEach(o => {
+            statusCount[o.estado] = (statusCount[o.estado] || 0) + 1
+        })
+        const statusRows = Object.entries(statusCount).sort((a, b) => b[1] - a[1])
+        byStatusEl.innerHTML = `
+            <h3 style="margin:0 0 10px 0;font-size:15px;color:#4B2E2B;">Distribución por estado</h3>
+            ${statusRows.length ? statusRows.map(([st, count]) => `
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f1f1;">
+                    <span style="font-size:13px;color:#4B2E2B;">${st}</span>
+                    <strong style="font-size:13px;color:#4B2E2B;">${count}</strong>
+                </div>
+            `).join("") : `<p style="margin:0;color:#777;">Sin datos para mostrar.</p>`}
+        `
+
+        setStatus(`Rango ${fromValue} a ${toValue}. ${totalOrders} pedido(s) encontrado(s).`, "success")
+    }
+
+    let allSales = []
+    async function loadAndRender() {
+        const desde = fromEl.value
+        const hasta = toEl.value
+        if (!desde || !hasta || desde > hasta) {
+            setStatus("Rango inválido. Verifica las fechas.", "error")
+            return
+        }
+        setStatus("Cargando métricas...")
+        try {
+            const res = await authFetch("/api/ordenes/ventas")
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                else if (res.status === 403) setStatus("No tienes permiso para ver métricas.", "error")
+                else setStatus(err.detail || "No fue posible cargar métricas.", "error")
+                return
+            }
+            allSales = await res.json()
+            renderStats(allSales, desde, hasta)
+        } catch (e) {
+            console.error("Error cargando métricas:", e)
+            setStatus("Error de conexión al cargar métricas.", "error")
+        }
+    }
+
+    document.getElementById("statsApplyBtn")?.addEventListener("click", () => {
+        if (allSales.length) {
+            renderStats(allSales, fromEl.value, toEl.value)
+        } else {
+            loadAndRender()
+        }
+    })
+    document.getElementById("statsExportCsvBtn")?.addEventListener("click", () => exportReport("csv"))
+    document.getElementById("statsExportPdfBtn")?.addEventListener("click", () => exportReport("pdf"))
+
+    await loadAndRender()
 }
 
 
