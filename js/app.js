@@ -600,11 +600,9 @@ function buildMenuItems(role) {
 
     if (role === "admin") {
         return [
-            { label: "Gestión de usuarios", action: () => openPlaceholder("Gestión de usuarios", "Administra cuentas de usuario desde aquí." ) },
-            { label: "Gestión de productos", action: () => openPlaceholder("Gestión de productos", "Administra el catálogo de productos desde aquí." ) },
-            { label: "Reportes del sistema", action: () => openPlaceholder("Reportes del sistema", "Consulta reportes e indicadores del sistema." ) },
+            { label: "Gestión de usuarios", action: openAdminUsers },
+            { label: "Gestión de productos", action: openAdminProducts },
             { label: "Gestión PQR", action: openAdminPQR },
-            { label: "Configuración general", action: openSettings },
             ...common,
         ];
     }
@@ -3671,4 +3669,404 @@ async function openAdminPQR() {
         console.error("Error cargando tickets admin PQR:", e)
         setAdminStatus("Error de conexión al cargar los tickets.", "error")
     }
+}
+
+// ── Gestión de usuarios — admin ─────────────────────────────────
+async function openAdminUsers() {
+    if (!currentUser || currentUser.role !== "admin") {
+        openPlaceholder("Gestión de usuarios", "Solo los administradores pueden gestionar usuarios.")
+        return
+    }
+
+    openDashboard("Gestión de usuarios", `
+        <div class="pqr-admin-panel" id="adminUsersPanel">
+            <div class="pqr-admin-filters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+                <div>
+                    <label class="pqr-label" for="adminUsersRoleFilter">Filtrar por rol</label>
+                    <select class="pqr-select" id="adminUsersRoleFilter">
+                        <option value="">Todos</option>
+                        <option value="comprador">Comprador</option>
+                        <option value="caficultor">Caficultor</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="pqr-label" for="adminUsersActiveFilter">Estado</label>
+                    <select class="pqr-select" id="adminUsersActiveFilter">
+                        <option value="">Todos</option>
+                        <option value="true">Activos</option>
+                        <option value="false">Inactivos</option>
+                    </select>
+                </div>
+                <div style="grid-column:span 2;">
+                    <label class="pqr-label" for="adminUsersSearch">Buscar usuario</label>
+                    <input class="pqr-input" id="adminUsersSearch" placeholder="Correo o nombre..." />
+                </div>
+                <div style="display:flex;align-items:end;">
+                    <button class="dashboard-action-btn" id="adminUsersReloadBtn" style="width:100%;">Actualizar</button>
+                </div>
+            </div>
+            <div class="buyer-cart-status" id="adminUsersStatus">Cargando usuarios…</div>
+            <div class="pqr-list" id="adminUsersList"></div>
+        </div>
+    `)
+
+    const token = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("adminUsersStatus")
+    const listEl = document.getElementById("adminUsersList")
+    const roleFilterEl = document.getElementById("adminUsersRoleFilter")
+    const activeFilterEl = document.getElementById("adminUsersActiveFilter")
+    const searchEl = document.getElementById("adminUsersSearch")
+    const reloadBtn = document.getElementById("adminUsersReloadBtn")
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error") statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    async function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        if (opts.body) headers["Content-Type"] = "application/json"
+        return fetch(`${API_CONFIG.API_USERS_URL}${path}`, {
+            method: opts.method || "GET",
+            headers,
+            body: opts.body ? JSON.stringify(opts.body) : undefined,
+        })
+    }
+
+    function roleLabel(role) {
+        if (role === "comprador") return "Comprador"
+        if (role === "caficultor") return "Caficultor"
+        if (role === "admin") return "Admin"
+        return role || "N/A"
+    }
+
+    function getUserId(u) {
+        return u._id || u.id || ""
+    }
+
+    async function loadUsers() {
+        setStatus("Cargando usuarios…")
+        listEl.innerHTML = ""
+
+        const query = new URLSearchParams()
+        if (roleFilterEl.value) query.set("role", roleFilterEl.value)
+        if (activeFilterEl.value) query.set("is_active", activeFilterEl.value)
+        const search = searchEl.value.trim()
+        if (search) query.set("search", search)
+        query.set("limit", "300")
+
+        try {
+            const res = await authFetch(`?${query.toString()}`)
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                else if (res.status === 403) setStatus("No tienes permisos para gestionar usuarios.", "error")
+                else setStatus(err.detail || "No fue posible cargar usuarios.", "error")
+                return
+            }
+
+            const users = await res.json()
+            statusEl.classList.add("hidden")
+            if (!users.length) {
+                listEl.innerHTML = `
+                    <div class="my-orders-empty">
+                        <i class="fas fa-users-slash"></i>
+                        <p>No se encontraron usuarios para este filtro.</p>
+                    </div>`
+                return
+            }
+
+            listEl.innerHTML = users.map(u => {
+                const userId = getUserId(u)
+                const isSelf = userId === (currentUser._id || currentUser.id)
+                const activeBadge = u.is_active
+                    ? '<span class="order-estado-badge" style="color:#0f5c2b;background:#d4f5e2;">Activo</span>'
+                    : '<span class="order-estado-badge" style="color:#666;background:#f0f0f0;">Inactivo</span>'
+                return `
+                <article class="pqr-card" data-user-id="${userId}">
+                    <div class="pqr-card-header">
+                        <div class="pqr-card-meta">
+                            <span class="pqr-tipo-tag">${roleLabel(u.role)}</span>
+                            ${activeBadge}
+                        </div>
+                        <span class="pqr-card-date">${new Date(u.created_at).toLocaleDateString("es-CO")}</span>
+                    </div>
+                    <p class="pqr-card-asunto">${escapeHtml(u.full_name || "(Sin nombre)")}</p>
+                    <p class="pqr-card-desc">${escapeHtml(u.email || "")}</p>
+                    <div class="pqr-admin-actions">
+                        <div class="pqr-admin-estado-row">
+                            <select class="pqr-select admin-user-role-select" style="flex:1;" ${isSelf ? "disabled" : ""}>
+                                <option value="comprador" ${u.role === "comprador" ? "selected" : ""}>Comprador</option>
+                                <option value="caficultor" ${u.role === "caficultor" ? "selected" : ""}>Caficultor</option>
+                            </select>
+                            <button type="button" class="dashboard-action-btn admin-user-role-btn"
+                                    style="padding:8px 12px;font-size:0.85rem;background:#1a5c8e;color:#fff;" ${isSelf ? "disabled" : ""}>
+                                Guardar rol
+                            </button>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <button type="button" class="dashboard-action-btn admin-user-delete-btn"
+                                    style="padding:8px 12px;font-size:0.85rem;background:#8e2d1c;color:#fff;" ${isSelf ? "disabled" : ""}>
+                                Eliminar usuario
+                            </button>
+                            ${isSelf ? '<span style="font-size:12px;color:#777;">Tu usuario admin no es editable aquí.</span>' : ''}
+                        </div>
+                        <div class="buyer-cart-status hidden admin-user-feedback"></div>
+                    </div>
+                </article>`
+            }).join("")
+
+            listEl.querySelectorAll("[data-user-id]").forEach(card => {
+                const userId = card.dataset.userId
+                const roleSelect = card.querySelector(".admin-user-role-select")
+                const roleBtn = card.querySelector(".admin-user-role-btn")
+                const deleteBtn = card.querySelector(".admin-user-delete-btn")
+                const feedbackEl = card.querySelector(".admin-user-feedback")
+
+                function setFeedback(msg, kind = "info") {
+                    feedbackEl.textContent = msg
+                    feedbackEl.classList.remove("hidden", "is-error", "is-success")
+                    if (kind === "error") feedbackEl.classList.add("is-error")
+                    if (kind === "success") feedbackEl.classList.add("is-success")
+                }
+
+                roleBtn?.addEventListener("click", async () => {
+                    const newRole = roleSelect?.value
+                    if (!newRole) return
+                    roleBtn.disabled = true
+                    setFeedback("Guardando rol...")
+                    try {
+                        const res = await authFetch(`/${userId}/role`, {
+                            method: "PATCH",
+                            body: { role: newRole },
+                        })
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}))
+                            setFeedback(err.detail || "No fue posible cambiar el rol.", "error")
+                            roleBtn.disabled = false
+                            return
+                        }
+                        setFeedback("Rol actualizado correctamente.", "success")
+                        await loadUsers()
+                    } catch {
+                        setFeedback("Error de conexión al actualizar rol.", "error")
+                        roleBtn.disabled = false
+                    }
+                })
+
+                deleteBtn?.addEventListener("click", async () => {
+                    const ok = confirm("¿Deseas eliminar permanentemente este usuario de la base de datos?")
+                    if (!ok) return
+                    deleteBtn.disabled = true
+                    setFeedback("Eliminando usuario...")
+                    try {
+                        const res = await authFetch(`/${userId}`, { method: "DELETE" })
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}))
+                            setFeedback(err.detail || "No fue posible eliminar el usuario.", "error")
+                            deleteBtn.disabled = false
+                            return
+                        }
+                        setFeedback("Usuario eliminado permanentemente.", "success")
+                        await loadUsers()
+                    } catch {
+                        setFeedback("Error de conexión al eliminar usuario.", "error")
+                        deleteBtn.disabled = false
+                    }
+                })
+            })
+        } catch (e) {
+            console.error("Error cargando usuarios:", e)
+            setStatus("Error de conexión al cargar usuarios.", "error")
+        }
+    }
+
+    roleFilterEl?.addEventListener("change", loadUsers)
+    activeFilterEl?.addEventListener("change", loadUsers)
+    searchEl?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault()
+            loadUsers()
+        }
+    })
+    reloadBtn?.addEventListener("click", loadUsers)
+
+    await loadUsers()
+}
+
+// ── Gestión de productos — admin ────────────────────────────────
+async function openAdminProducts() {
+    if (!currentUser || currentUser.role !== "admin") {
+        openPlaceholder("Gestión de productos", "Solo los administradores pueden gestionar productos.")
+        return
+    }
+
+    openDashboard("Gestión de productos", `
+        <div class="pqr-admin-panel" id="adminProductsPanel">
+            <div class="pqr-admin-filters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+                <div>
+                    <label class="pqr-label" for="adminProductsStatusFilter">Estado</label>
+                    <select class="pqr-select" id="adminProductsStatusFilter">
+                        <option value="">Todos</option>
+                        <option value="true">Activos</option>
+                        <option value="false">Inactivos</option>
+                    </select>
+                </div>
+                <div style="grid-column:span 2;">
+                    <label class="pqr-label" for="adminProductsSearch">Buscar producto</label>
+                    <input class="pqr-input" id="adminProductsSearch" placeholder="Nombre o región..." />
+                </div>
+                <div style="display:flex;align-items:end;">
+                    <button class="dashboard-action-btn" id="adminProductsReloadBtn" style="width:100%;">Actualizar</button>
+                </div>
+            </div>
+            <div class="buyer-cart-status" id="adminProductsStatus">Cargando productos…</div>
+            <div class="pqr-list" id="adminProductsList"></div>
+        </div>
+    `)
+
+    const token = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("adminProductsStatus")
+    const listEl = document.getElementById("adminProductsList")
+    const stateFilterEl = document.getElementById("adminProductsStatusFilter")
+    const searchEl = document.getElementById("adminProductsSearch")
+    const reloadBtn = document.getElementById("adminProductsReloadBtn")
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error") statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    async function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        if (opts.body) headers["Content-Type"] = "application/json"
+        return fetch(`${API_CONFIG.BASE_URL}${path}`, {
+            method: opts.method || "GET",
+            headers,
+            body: opts.body ? JSON.stringify(opts.body) : undefined,
+        })
+    }
+
+    let allProducts = []
+
+    function renderProducts(products) {
+        if (!products.length) {
+            listEl.innerHTML = `
+                <div class="my-orders-empty">
+                    <i class="fas fa-box-open"></i>
+                    <p>No se encontraron productos con ese filtro.</p>
+                </div>`
+            return
+        }
+
+        listEl.innerHTML = products.map(p => {
+            const productId = p._id || p.id
+            const statusBadge = p.is_active
+                ? '<span class="order-estado-badge" style="color:#0f5c2b;background:#d4f5e2;">Activo</span>'
+                : '<span class="order-estado-badge" style="color:#666;background:#f0f0f0;">Inactivo</span>'
+            return `
+            <article class="pqr-card" data-product-id="${productId}">
+                <div class="pqr-card-header">
+                    <div class="pqr-card-meta">
+                        <span class="pqr-tipo-tag">${escapeHtml(p.region || "Sin región")}</span>
+                        ${statusBadge}
+                    </div>
+                    <span class="pqr-card-date">${formatCop(Number(p.precio || 0))}</span>
+                </div>
+                <p class="pqr-card-asunto">${escapeHtml(p.nombre || "Producto")}</p>
+                <p class="pqr-card-desc">${escapeHtml(p.descripcion || "")}</p>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                    <span style="font-size:12px;color:#777;">Stock: ${Number(p.stock || 0)} · Caficultor: ${escapeHtml(p.caficultor_id || "")}</span>
+                    <button type="button" class="dashboard-action-btn admin-product-delete-btn"
+                            style="padding:8px 12px;font-size:0.85rem;background:#8e2d1c;color:#fff;" ${!p.is_active ? "disabled" : ""}>
+                        Eliminar producto
+                    </button>
+                </div>
+                <div class="buyer-cart-status hidden admin-product-feedback"></div>
+            </article>`
+        }).join("")
+
+        listEl.querySelectorAll("[data-product-id]").forEach(card => {
+            const productId = card.dataset.productId
+            const deleteBtn = card.querySelector(".admin-product-delete-btn")
+            const feedbackEl = card.querySelector(".admin-product-feedback")
+
+            function setFeedback(msg, kind = "info") {
+                feedbackEl.textContent = msg
+                feedbackEl.classList.remove("hidden", "is-error", "is-success")
+                if (kind === "error") feedbackEl.classList.add("is-error")
+                if (kind === "success") feedbackEl.classList.add("is-success")
+            }
+
+            deleteBtn?.addEventListener("click", async () => {
+                const ok = confirm("¿Deseas eliminar este producto del catálogo?")
+                if (!ok) return
+                deleteBtn.disabled = true
+                setFeedback("Eliminando producto...")
+                try {
+                    const res = await authFetch(`/api/productos/${productId}`, { method: "DELETE" })
+                    if (!res.ok && res.status !== 204) {
+                        const err = await res.json().catch(() => ({}))
+                        setFeedback(err.detail || "No fue posible eliminar el producto.", "error")
+                        deleteBtn.disabled = false
+                        return
+                    }
+                    setFeedback("Producto eliminado correctamente.", "success")
+                    await loadProducts()
+                } catch {
+                    setFeedback("Error de conexión al eliminar producto.", "error")
+                    deleteBtn.disabled = false
+                }
+            })
+        })
+    }
+
+    function applyFilters() {
+        const stateVal = stateFilterEl.value
+        const term = searchEl.value.trim().toLowerCase()
+
+        let filtered = [...allProducts]
+        if (stateVal === "true") filtered = filtered.filter(p => p.is_active)
+        if (stateVal === "false") filtered = filtered.filter(p => !p.is_active)
+        if (term) {
+            filtered = filtered.filter(p =>
+                String(p.nombre || "").toLowerCase().includes(term) ||
+                String(p.region || "").toLowerCase().includes(term) ||
+                String(p.descripcion || "").toLowerCase().includes(term)
+            )
+        }
+        renderProducts(filtered)
+    }
+
+    async function loadProducts() {
+        setStatus("Cargando productos…")
+        listEl.innerHTML = ""
+        try {
+            const res = await authFetch("/api/productos/admin/todos")
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                else if (res.status === 403) setStatus("No tienes permisos para gestionar productos.", "error")
+                else setStatus(err.detail || "No fue posible cargar productos.", "error")
+                return
+            }
+            allProducts = await res.json()
+            statusEl.classList.add("hidden")
+            applyFilters()
+        } catch (e) {
+            console.error("Error cargando productos admin:", e)
+            setStatus("Error de conexión al cargar productos.", "error")
+        }
+    }
+
+    stateFilterEl?.addEventListener("change", applyFilters)
+    searchEl?.addEventListener("input", applyFilters)
+    reloadBtn?.addEventListener("click", loadProducts)
+
+    await loadProducts()
 }
