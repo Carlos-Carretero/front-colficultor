@@ -575,7 +575,7 @@ async function getCurrentUser() {
 function buildMenuItems(role) {
     const common = [
         { label: "Mi perfil", action: openProfile },
-        { label: "Mensajes", action: openMessages },
+        { label: "Notificaciones", action: openMessages },
         { label: "Configuración", action: openSettings },
         { label: "Cerrar sesión", action: logout },
     ];
@@ -1600,7 +1600,7 @@ function openProfile() {
 
 function openMessages() {
     if (!currentUser) {
-        openPlaceholder("Mensajes", "Inicia sesión para ver tus notificaciones.")
+        openPlaceholder("Notificaciones", "Inicia sesión para ver tus notificaciones.")
         return
     }
 
@@ -1609,7 +1609,7 @@ function openMessages() {
         : (currentUser.role === "caficultor" ? "caficultor" : "admin")
 
     openDashboard(
-        "Mensajes",
+        "Notificaciones",
         `
         <div class="my-orders-panel" id="messagesPanel">
             <div class="buyer-cart-status" id="messagesStatus">Cargando notificaciones...</div>
@@ -3256,8 +3256,16 @@ async function openMyPQR() {
                 return
             }
 
-            listEl.innerHTML = tickets.map(t => `
-                <article class="pqr-card">
+            listEl.innerHTML = tickets.map(t => {
+                const ticketId = t.id || t._id
+                const mensajes = Array.isArray(t.mensajes) ? t.mensajes : []
+                const fallbackRespuesta = (!mensajes.length && t.respuesta)
+                    ? [{ autorRole: "ADMIN", mensaje: t.respuesta, createdAt: t.updatedAt || t.createdAt }]
+                    : []
+                const timeline = [...mensajes, ...fallbackRespuesta]
+
+                return `
+                <article class="pqr-card" data-ticket-id="${ticketId}">
                     <div class="pqr-card-header">
                         <div class="pqr-card-meta">
                             <span class="pqr-tipo-tag">${PQR_TIPO_MAP[t.tipo] || t.tipo}</span>
@@ -3269,13 +3277,77 @@ async function openMyPQR() {
                     </div>
                     <p class="pqr-card-asunto">${t.asunto}</p>
                     <p class="pqr-card-desc">${t.descripcion}</p>
-                    ${t.respuesta ? `
-                    <div class="pqr-respuesta">
-                        <p class="pqr-respuesta-label"><i class="fas fa-reply"></i> Respuesta del equipo</p>
-                        <p class="pqr-respuesta-texto">${t.respuesta}</p>
-                    </div>` : ""}
+
+                    <div style="margin-top:10px;border:1px solid #eee;border-radius:10px;padding:10px;background:#fff;">
+                        <p class="pqr-respuesta-label" style="margin-bottom:8px;"><i class="fas fa-comments"></i> Conversación</p>
+                        <div style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;">
+                            ${timeline.length ? timeline.map(m => {
+                                const isAdmin = String(m.autorRole || "").toUpperCase() === "ADMIN"
+                                return `
+                                <div style="align-self:${isAdmin ? "flex-start" : "flex-end"};max-width:90%;background:${isAdmin ? "#f4f7fb" : "#fff4e1"};border:1px solid ${isAdmin ? "#dce7f7" : "#f3d7ac"};border-radius:10px;padding:8px 10px;">
+                                    <div style="font-size:11px;color:#777;margin-bottom:3px;">${isAdmin ? "Soporte" : "Tú"} · ${new Date(m.createdAt).toLocaleString("es-CO")}</div>
+                                    <div style="font-size:13px;color:#333;white-space:pre-wrap;">${m.mensaje}</div>
+                                </div>`
+                            }).join("") : `<p style="font-size:12px;color:#777;">Aún no hay mensajes.</p>`}
+                        </div>
+                    </div>
+
+                    <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+                        <textarea class="pqr-textarea pqr-user-msg-input" rows="2" maxlength="3000" placeholder="Escribe un mensaje al equipo de soporte..."></textarea>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <button type="button" class="dashboard-action-btn pqr-user-msg-btn" style="padding:8px 12px;">
+                                <i class="fas fa-paper-plane"></i> Enviar mensaje
+                            </button>
+                            <div class="buyer-cart-status hidden pqr-user-msg-feedback" style="margin:0;"></div>
+                        </div>
+                    </div>
                 </article>
-            `).join("")
+            `
+            }).join("")
+
+            listEl.querySelectorAll(".pqr-user-msg-btn").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    const card = btn.closest("[data-ticket-id]")
+                    const ticketId = card?.dataset.ticketId
+                    const input = card?.querySelector(".pqr-user-msg-input")
+                    const feedbackEl = card?.querySelector(".pqr-user-msg-feedback")
+                    const mensaje = input?.value?.trim() || ""
+                    if (!ticketId || !input || !feedbackEl) return
+
+                    function setMsgFeedback(msg, kind = "info") {
+                        feedbackEl.textContent = msg
+                        feedbackEl.classList.remove("hidden", "is-error", "is-success")
+                        if (kind === "error") feedbackEl.classList.add("is-error")
+                        if (kind === "success") feedbackEl.classList.add("is-success")
+                    }
+
+                    if (!mensaje) {
+                        setMsgFeedback("Escribe un mensaje antes de enviar.", "error")
+                        return
+                    }
+
+                    btn.disabled = true
+                    setMsgFeedback("Enviando mensaje...")
+                    try {
+                        const res = await authFetch(`/api/pqr/${ticketId}/mensajes`, {
+                            method: "POST",
+                            body: { mensaje },
+                        })
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}))
+                            setMsgFeedback(err.detail || "No fue posible enviar el mensaje.", "error")
+                            btn.disabled = false
+                            return
+                        }
+                        setMsgFeedback("Mensaje enviado.", "success")
+                        input.value = ""
+                        await loadMyTickets()
+                    } catch {
+                        setMsgFeedback("Error de conexión al enviar el mensaje.", "error")
+                        btn.disabled = false
+                    }
+                })
+            })
 
         } catch (e) {
             console.error("Error cargando tickets PQR:", e)
@@ -3397,8 +3469,16 @@ async function openAdminPQR() {
             return
         }
 
-        listEl.innerHTML = tickets.map(t => `
-            <article class="pqr-card pqr-admin-card" data-ticket-id="${t.id || t._id}">
+        listEl.innerHTML = tickets.map(t => {
+            const ticketId = t.id || t._id
+            const mensajes = Array.isArray(t.mensajes) ? t.mensajes : []
+            const fallbackRespuesta = (!mensajes.length && t.respuesta)
+                ? [{ autorRole: "ADMIN", mensaje: t.respuesta, createdAt: t.updatedAt || t.createdAt }]
+                : []
+            const timeline = [...mensajes, ...fallbackRespuesta]
+
+            return `
+            <article class="pqr-card pqr-admin-card" data-ticket-id="${ticketId}">
                 <div class="pqr-card-header">
                     <div class="pqr-card-meta">
                         <span class="pqr-tipo-tag">${PQR_TIPO_MAP[t.tipo] || t.tipo}</span>
@@ -3411,11 +3491,19 @@ async function openAdminPQR() {
                 <p class="pqr-card-asunto">${t.asunto}</p>
                 <p class="pqr-card-desc">${t.descripcion}</p>
 
-                ${t.respuesta ? `
-                <div class="pqr-respuesta">
-                    <p class="pqr-respuesta-label"><i class="fas fa-reply"></i> Respuesta enviada</p>
-                    <p class="pqr-respuesta-texto">${t.respuesta}</p>
-                </div>` : ""}
+                <div style="margin-top:10px;border:1px solid #eee;border-radius:10px;padding:10px;background:#fff;">
+                    <p class="pqr-respuesta-label" style="margin-bottom:8px;"><i class="fas fa-comments"></i> Conversación</p>
+                    <div style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;">
+                        ${timeline.length ? timeline.map(m => {
+                            const isAdmin = String(m.autorRole || "").toUpperCase() === "ADMIN"
+                            return `
+                            <div style="align-self:${isAdmin ? "flex-end" : "flex-start"};max-width:90%;background:${isAdmin ? "#fff4e1" : "#f4f7fb"};border:1px solid ${isAdmin ? "#f3d7ac" : "#dce7f7"};border-radius:10px;padding:8px 10px;">
+                                <div style="font-size:11px;color:#777;margin-bottom:3px;">${isAdmin ? "Admin" : "Usuario"} · ${new Date(m.createdAt).toLocaleString("es-CO")}</div>
+                                <div style="font-size:13px;color:#333;white-space:pre-wrap;">${m.mensaje}</div>
+                            </div>`
+                        }).join("") : `<p style="font-size:12px;color:#777;">Sin mensajes todavía.</p>`}
+                    </div>
+                </div>
 
                 <div class="pqr-admin-actions">
                     <div class="pqr-admin-estado-row">
@@ -3432,25 +3520,25 @@ async function openAdminPQR() {
                     </div>
                     <div class="pqr-admin-feedback buyer-cart-status hidden"></div>
 
-                    ${!t.respuesta ? `
                     <button type="button" class="pqr-responder-toggle" data-ticket-id="${t.id || t._id}">
-                        <i class="fas fa-reply"></i> Responder ticket
+                        <i class="fas fa-reply"></i> Enviar mensaje
                     </button>
                     <div class="pqr-responder-form hidden">
                         <textarea class="pqr-textarea pqr-respuesta-input"
-                                  placeholder="Escribe la respuesta al usuario…"
+                                  placeholder="Escribe un mensaje para el usuario…"
                                   minlength="3" maxlength="3000" rows="3"></textarea>
                         <div class="pqr-responder-actions">
                             <button type="button" class="dashboard-action-btn pqr-responder-btn"
                                     style="flex:1;justify-content:center;background:var(--color-primary-dark);color:#fff;">
-                                <i class="fas fa-paper-plane"></i> Enviar respuesta
+                                <i class="fas fa-paper-plane"></i> Enviar mensaje
                             </button>
                             <button type="button" class="pqr-responder-cancel">Cancelar</button>
                         </div>
-                    </div>` : ""}
+                    </div>
                 </div>
             </article>
-        `).join("")
+        `
+        }).join("")
 
         // ── event listeners por tarjeta ──
         listEl.querySelectorAll(".pqr-admin-card").forEach(card => {
@@ -3512,46 +3600,42 @@ async function openAdminPQR() {
                 card.querySelector(".pqr-responder-form")?.classList.add("hidden")
             })
 
-            // Enviar respuesta
+            // Enviar mensaje
             card.querySelector(".pqr-responder-btn")?.addEventListener("click", async () => {
                 const textarea  = card.querySelector(".pqr-respuesta-input")
                 const respuesta = textarea.value.trim()
                 const sendBtn   = card.querySelector(".pqr-responder-btn")
 
                 if (respuesta.length < 3) {
-                    setFeedback("La respuesta debe tener al menos 3 caracteres.", "error")
+                    setFeedback("El mensaje debe tener al menos 3 caracteres.", "error")
                     return
                 }
 
                 sendBtn.disabled = true
-                setFeedback("Enviando respuesta…")
+                setFeedback("Enviando mensaje…")
 
                 try {
-                    const res = await authFetch(`/api/pqr/${ticketId}/respuesta`, {
+                    const res = await authFetch(`/api/pqr/${ticketId}/mensajes`, {
                         method: "POST",
-                        body: { respuesta },
+                        body: { mensaje: respuesta },
                     })
                     if (res.ok) {
-                        setFeedback("Respuesta enviada correctamente.", "success")
-                        // reemplazar sección de respuesta en la tarjeta
-                        const actionsEl = card.querySelector(".pqr-admin-actions")
-                        card.querySelector(".pqr-responder-toggle")?.remove()
-                        card.querySelector(".pqr-responder-form")?.remove()
-                        const respBlock = document.createElement("div")
-                        respBlock.className = "pqr-respuesta"
-                        respBlock.innerHTML = `
-                            <p class="pqr-respuesta-label"><i class="fas fa-reply"></i> Respuesta enviada</p>
-                            <p class="pqr-respuesta-texto">${respuesta}</p>`
-                        actionsEl.insertAdjacentElement("beforebegin", respBlock)
-                        const t = allTickets.find(t => (t.id || t._id) === ticketId)
-                        if (t) t.respuesta = respuesta
+                        setFeedback("Mensaje enviado correctamente.", "success")
+                        const updated = await res.json().catch(() => null)
+                        if (updated) {
+                            const idx = allTickets.findIndex(t => (t.id || t._id) === ticketId)
+                            if (idx >= 0) allTickets[idx] = updated
+                        }
+                        const currentFilter = document.getElementById("pqrAdminFilter")?.value || ""
+                        const filtered = currentFilter ? allTickets.filter(t => t.estado === currentFilter) : allTickets
+                        renderTickets(filtered)
                         return
                     }
                     const err = await res.json().catch(() => ({}))
                     if      (res.status === 401) setFeedback("Sesión no válida.", "error")
                     else if (res.status === 403) setFeedback("Sin permiso para responder.", "error")
                     else if (res.status === 404) setFeedback("Ticket no encontrado.", "error")
-                    else                         setFeedback(err.detail || "No fue posible enviar la respuesta.", "error")
+                    else                         setFeedback(err.detail || "No fue posible enviar el mensaje.", "error")
                     sendBtn.disabled = false
                 } catch {
                     setFeedback("Error de conexión.", "error")
