@@ -98,6 +98,7 @@ textarea {
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
+    position: relative;
 }
 
 .brand {
@@ -158,6 +159,7 @@ textarea {
     display: none;
     flex-direction: column;
     gap: var(--space-2);
+    z-index: 75;
 }
 
 .nav-links.is-open {
@@ -409,7 +411,7 @@ textarea {
     position: absolute;
     right: 0;
     top: calc(100% + 8px);
-    width: min(260px, calc(100vw - 48px));
+    width: min(260px, calc(100vw - 2 * var(--space-3)));
     background: #fff;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -1404,6 +1406,20 @@ footer {
 }
 
 /* Breakpoints */
+/* Menú de usuario: corrección responsive (hasta 767px) */
+@media (max-width: 767px) {
+    /*
+     * En móvil el botón de usuario está alineado a la izquierda (flex-start).
+     * Con right:0 el menú desplegable se extendería fuera del viewport hacia
+     * la izquierda. Se cambia a left:0 para que se ancle al borde izquierdo
+     * del botón y crezca hacia la derecha, dentro de la pantalla.
+     */
+    .user-menu {
+        right: auto;
+        left: 0;
+    }
+}
+
 /* Móvil pequeño: hasta 479px */
 @media (max-width: 479px) {
     .container,
