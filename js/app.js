@@ -26,6 +26,41 @@ const cartBtn = document.getElementById("cartBtn")
 
 let currentUser = null
 
+function showAppToast(message, kind = "info", timeoutMs = 3200) {
+    const body = document.body
+    if (!body) return
+
+    let host = document.getElementById("appToastHost")
+    if (!host) {
+        host = document.createElement("div")
+        host.id = "appToastHost"
+        host.style.cssText = "position:fixed;top:18px;right:18px;z-index:100000;display:flex;flex-direction:column;gap:10px;max-width:min(92vw,380px);"
+        body.appendChild(host)
+    }
+
+    const toast = document.createElement("div")
+    const palette = {
+        info: { bg: "#ffffff", border: "#e6c9a6", color: "#4B2E2B" },
+        success: { bg: "#effcf4", border: "#81d4a1", color: "#0f5c2b" },
+        error: { bg: "#fff1f1", border: "#f0a7a7", color: "#8e1f1f" },
+    }
+    const theme = palette[kind] || palette.info
+    toast.style.cssText = `border:1px solid ${theme.border};background:${theme.bg};color:${theme.color};padding:12px 14px;border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.12);font-size:0.92rem;line-height:1.35;opacity:0;transform:translateY(-6px);transition:opacity .2s ease, transform .2s ease;`
+    toast.textContent = String(message || "")
+    host.appendChild(toast)
+
+    requestAnimationFrame(() => {
+        toast.style.opacity = "1"
+        toast.style.transform = "translateY(0)"
+    })
+
+    window.setTimeout(() => {
+        toast.style.opacity = "0"
+        toast.style.transform = "translateY(-6px)"
+        window.setTimeout(() => toast.remove(), 220)
+    }, timeoutMs)
+}
+
 // ── reCAPTCHA v3 ───────────────────────────────────────────────
 const RECAPTCHA_SITE_KEY = "6LcTDaQsAAAAAFqnC9Ib3PAPf1Zfcc-YztBQK7lF"
 
@@ -149,19 +184,19 @@ loginForm.addEventListener("submit", async (e) => {
             localStorage.setItem("access_token", data.access_token);
             const authenticated = await applyAuthenticatedState();
             if (authenticated) {
-                alert("Inicio de sesión exitoso");
+                showAppToast("Inicio de sesión exitoso");
                 modal.classList.remove("active");
                 loginForm.reset();
             } else {
-                alert("Inicio de sesión falló al obtener el perfil. Por favor vuelve a intentarlo.");
+                showAppToast("Inicio de sesión falló al obtener el perfil. Por favor vuelve a intentarlo.");
             }
         } else {
             const error = await response.json();
-            alert(`Error: ${error.detail || "Credenciales incorrectas"}`);
+            showAppToast(`Error: ${error.detail || "Credenciales incorrectas"}`);
         }
     } catch (error) {
         console.error("Error en login:", error);
-        alert("Ocurrió un error al intentar iniciar sesión. Verifica que el servidor esté corriendo.");
+        showAppToast("Ocurrió un error al intentar iniciar sesión. Verifica que el servidor esté corriendo.");
     }
 });
 
@@ -191,18 +226,18 @@ registerForm.addEventListener("submit", async (e) => {
         });
 
         if (response.ok) {
-            alert("Registro exitoso. Ahora puedes iniciar sesión.");
+            showAppToast("Registro exitoso. Ahora puedes iniciar sesión.");
             registerForm.reset();
             // Switch to login tab
             registerContainer.classList.add("hidden");
             loginContainer.classList.remove("hidden");
         } else {
             const error = await response.json();
-            alert(`Error en el registro: ${JSON.stringify(error.detail) || "Datos inválidos"}`);
+            showAppToast(`Error en el registro: ${JSON.stringify(error.detail) || "Datos inválidos"}`);
         }
     } catch (error) {
         console.error("Error en registro:", error);
-        alert("Ocurrió un error al intentar registrarse. Verifica que el servidor esté corriendo.");
+        showAppToast("Ocurrió un error al intentar registrarse. Verifica que el servidor esté corriendo.");
     }
 });
 
@@ -227,17 +262,17 @@ recoveryForm.addEventListener("submit", async (e) => {
 
         if (response.ok) {
             const responseData = await response.json();
-            alert(responseData.message || "Se ha enviado un enlace de recuperación a tu correo electrónico.");
+            showAppToast(responseData.message || "Se ha enviado un enlace de recuperación a tu correo electrónico.");
             recoveryForm.reset();
             recoveryContainer.classList.add("hidden");
             loginContainer.classList.remove("hidden");
         } else {
             const errorData = await response.json();
-            alert(errorData.message || "No se pudo procesar la solicitud. Intenta más tarde.");
+            showAppToast(errorData.message || "No se pudo procesar la solicitud. Intenta más tarde.");
         }
     } catch (error) {
         console.error("Error en recuperación:", error);
-        alert("Ocurrió un error. Por favor, intenta de nuevo.");
+        showAppToast("Ocurrió un error. Por favor, intenta de nuevo.");
     }
 });
 
@@ -354,7 +389,7 @@ function updateCatalogPagination() {
 async function addToCartFromCatalog(productId) {
     const token = localStorage.getItem("access_token")
     if (!token) {
-        alert("Debes iniciar sesión como comprador para agregar productos al carrito.")
+        showAppToast("Debes iniciar sesión como comprador para agregar productos al carrito.")
         return
     }
 
@@ -1308,7 +1343,7 @@ async function openOrderDetail(order, authFetch) {
                     }
 
                     const err = await res.json().catch(() => ({}))
-                    if      (res.status === 403) setFormStatus("Solo puedes reseñar productos que hayas comprado en una orden pagada.", "error")
+                    if      (res.status === 403) setFormStatus("Solo puedes reseñar productos que hayas comprado y cuyo pedido ya fue pagado o entregado.", "error")
                     else if (res.status === 409) setFormStatus("Ya enviaste una reseña para este producto.", "error")
                     else if (res.status === 401) setFormStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
                     else                         setFormStatus(err.detail || "No fue posible enviar la reseña.", "error")
@@ -1677,15 +1712,15 @@ function openSettings() {
                     currentUser = { ...currentUser, ...updatedUser }; 
                     userNameDisplay.textContent = currentUser.full_name || currentUser.email || "Mi perfil";
                     
-                    alert("¡Perfil actualizado correctamente!");
+                    showAppToast("¡Perfil actualizado correctamente!");
                     openProfile(); // Regresa a "Mi perfil" para visualizar el cambio
                 } else {
                     const errorJson = await response.json();
-                    alert("Error guardando el perfil: " + (errorJson.detail || "Revise los campos"));
+                    showAppToast("Error guardando el perfil: " + (errorJson.detail || "Revise los campos"));
                 }
             } catch (error) {
                 console.error("Error updating profile:", error);
-                alert("Ocurrió un error al contactar al servidor.");
+                showAppToast("Ocurrió un error al contactar al servidor.");
             }
         });
     }
@@ -1980,15 +2015,15 @@ function openAddProductModal() {
                         }
                     }
 
-                    alert("¡Producto guardado exitosamente!");
+                    showAppToast("¡Producto guardado exitosamente!");
                     openMyProducts();
                 } else {
                     const err = await response.json();
-                    alert("Error al guardar: " + (err.detail || "Datos inválidos"));
+                    showAppToast("Error al guardar: " + (err.detail || "Datos inválidos"));
                 }
             } catch (error) {
                 console.error("Error creating product:", error);
-                alert("Ocurrió un error al conectar con el servidor.");
+                showAppToast("Ocurrió un error al conectar con el servidor.");
             }
         });
     }
@@ -2173,10 +2208,10 @@ async function deleteProduct(productId) {
             openMyProducts();
         } else {
             const err = await response.json().catch(() => ({}));
-            alert(err.detail || "No fue posible eliminar el producto.");
+            showAppToast(err.detail || "No fue posible eliminar el producto.");
         }
     } catch {
-        alert("Error de conexión con el servidor.");
+        showAppToast("Error de conexión con el servidor.");
     }
 }
 
@@ -2685,17 +2720,17 @@ async function completeGoogleRegistration(tempToken, role) {
 
             const authenticated = await applyAuthenticatedState()
             if (authenticated) {
-                alert("¡Registro exitoso! Bienvenido a Colficultor.")
+                showAppToast("¡Registro exitoso! Bienvenido a Colficultor.")
             } else {
-                alert("Registro completado. Por favor inicia sesión.")
+                showAppToast("Registro completado. Por favor inicia sesión.")
             }
         } else {
             const err = await response.json()
-            alert(`Error al completar el registro: ${err.detail || "Inténtalo de nuevo."}`)
+            showAppToast(`Error al completar el registro: ${err.detail || "Inténtalo de nuevo."}`)
         }
     } catch (error) {
         console.error("Error al completar registro Google:", error)
-        alert("Ocurrió un error de conexión. Verifica que el servidor esté corriendo.")
+        showAppToast("Ocurrió un error de conexión. Verifica que el servidor esté corriendo.")
     }
 }
 
@@ -2758,7 +2793,7 @@ function cleanGoogleParams() {
         const authenticated = await applyAuthenticatedState()
         if (!authenticated) {
             localStorage.removeItem("access_token")
-            alert("No se pudo cargar tu perfil. Por favor intenta de nuevo.")
+            showAppToast("No se pudo cargar tu perfil. Por favor intenta de nuevo.")
         }
 
     } else if (googlePending) {
@@ -2772,7 +2807,7 @@ function cleanGoogleParams() {
         // — Error en el flujo OAuth → mostrar mensaje y abrir login —
         console.error("[Google OAuth] Error recibido:", googleError)
         cleanGoogleParams()
-        alert(getGoogleErrorMessage(googleError))
+        showAppToast(getGoogleErrorMessage(googleError))
         if (modal) modal.classList.add("active")
     }
 })()
