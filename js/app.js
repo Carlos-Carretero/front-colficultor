@@ -26,6 +26,41 @@ const cartBtn = document.getElementById("cartBtn")
 
 let currentUser = null
 
+function showAppToast(message, kind = "info", timeoutMs = 3200) {
+    const body = document.body
+    if (!body) return
+
+    let host = document.getElementById("appToastHost")
+    if (!host) {
+        host = document.createElement("div")
+        host.id = "appToastHost"
+        host.style.cssText = "position:fixed;top:18px;right:18px;z-index:100000;display:flex;flex-direction:column;gap:10px;max-width:min(92vw,380px);"
+        body.appendChild(host)
+    }
+
+    const toast = document.createElement("div")
+    const palette = {
+        info: { bg: "#ffffff", border: "#e6c9a6", color: "#4B2E2B" },
+        success: { bg: "#effcf4", border: "#81d4a1", color: "#0f5c2b" },
+        error: { bg: "#fff1f1", border: "#f0a7a7", color: "#8e1f1f" },
+    }
+    const theme = palette[kind] || palette.info
+    toast.style.cssText = `border:1px solid ${theme.border};background:${theme.bg};color:${theme.color};padding:12px 14px;border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.12);font-size:0.92rem;line-height:1.35;opacity:0;transform:translateY(-6px);transition:opacity .2s ease, transform .2s ease;`
+    toast.textContent = String(message || "")
+    host.appendChild(toast)
+
+    requestAnimationFrame(() => {
+        toast.style.opacity = "1"
+        toast.style.transform = "translateY(0)"
+    })
+
+    window.setTimeout(() => {
+        toast.style.opacity = "0"
+        toast.style.transform = "translateY(-6px)"
+        window.setTimeout(() => toast.remove(), 220)
+    }, timeoutMs)
+}
+
 // ── reCAPTCHA v3 ───────────────────────────────────────────────
 const RECAPTCHA_SITE_KEY = "6LcTDaQsAAAAAFqnC9Ib3PAPf1Zfcc-YztBQK7lF"
 
@@ -149,19 +184,19 @@ loginForm.addEventListener("submit", async (e) => {
             localStorage.setItem("access_token", data.access_token);
             const authenticated = await applyAuthenticatedState();
             if (authenticated) {
-                alert("Inicio de sesión exitoso");
+                showAppToast("Inicio de sesión exitoso");
                 modal.classList.remove("active");
                 loginForm.reset();
             } else {
-                alert("Inicio de sesión falló al obtener el perfil. Por favor vuelve a intentarlo.");
+                showAppToast("Inicio de sesión falló al obtener el perfil. Por favor vuelve a intentarlo.");
             }
         } else {
             const error = await response.json();
-            alert(`Error: ${error.detail || "Credenciales incorrectas"}`);
+            showAppToast(`Error: ${error.detail || "Credenciales incorrectas"}`);
         }
     } catch (error) {
         console.error("Error en login:", error);
-        alert("Ocurrió un error al intentar iniciar sesión. Verifica que el servidor esté corriendo.");
+        showAppToast("Ocurrió un error al intentar iniciar sesión. Verifica que el servidor esté corriendo.");
     }
 });
 
@@ -191,18 +226,18 @@ registerForm.addEventListener("submit", async (e) => {
         });
 
         if (response.ok) {
-            alert("Registro exitoso. Ahora puedes iniciar sesión.");
+            showAppToast("Registro exitoso. Ahora puedes iniciar sesión.");
             registerForm.reset();
             // Switch to login tab
             registerContainer.classList.add("hidden");
             loginContainer.classList.remove("hidden");
         } else {
             const error = await response.json();
-            alert(`Error en el registro: ${JSON.stringify(error.detail) || "Datos inválidos"}`);
+            showAppToast(`Error en el registro: ${JSON.stringify(error.detail) || "Datos inválidos"}`);
         }
     } catch (error) {
         console.error("Error en registro:", error);
-        alert("Ocurrió un error al intentar registrarse. Verifica que el servidor esté corriendo.");
+        showAppToast("Ocurrió un error al intentar registrarse. Verifica que el servidor esté corriendo.");
     }
 });
 
@@ -227,17 +262,17 @@ recoveryForm.addEventListener("submit", async (e) => {
 
         if (response.ok) {
             const responseData = await response.json();
-            alert(responseData.message || "Se ha enviado un enlace de recuperación a tu correo electrónico.");
+            showAppToast(responseData.message || "Se ha enviado un enlace de recuperación a tu correo electrónico.");
             recoveryForm.reset();
             recoveryContainer.classList.add("hidden");
             loginContainer.classList.remove("hidden");
         } else {
             const errorData = await response.json();
-            alert(errorData.message || "No se pudo procesar la solicitud. Intenta más tarde.");
+            showAppToast(errorData.message || "No se pudo procesar la solicitud. Intenta más tarde.");
         }
     } catch (error) {
         console.error("Error en recuperación:", error);
-        alert("Ocurrió un error. Por favor, intenta de nuevo.");
+        showAppToast("Ocurrió un error. Por favor, intenta de nuevo.");
     }
 });
 
@@ -276,6 +311,9 @@ function setCatalogStatus(message, kind = "info") {
     if (kind === "success") catalogStatus.classList.add("is-success")
 }
 
+// Caché de productos del catálogo cargados actualmente (id → objeto completo)
+const catalogItemsCache = new Map()
+
 function getCatalogFilters() {
     return {
         q: document.getElementById("filterQ")?.value?.trim() || "",
@@ -303,6 +341,8 @@ function buildCatalogUrl() {
 
 function renderCatalogItems(items) {
     if (!catalogResults) return
+    catalogItemsCache.clear()
+    items.forEach(p => catalogItemsCache.set(p._id, p))
     catalogResults.innerHTML = items.map((product) => {
         const imgUrl = product.urls_imagenes && product.urls_imagenes.length > 0
             ? product.urls_imagenes[0]
@@ -325,9 +365,14 @@ function renderCatalogItems(items) {
             </section>
             <section class="catalog-card-footer">
                 <span class="catalog-price">${formatCop(Number(product.precio || 0))}</span>
-                <button type="button" class="btn-comprar catalog-add-btn" data-product-id="${product._id}">
-                    Agregar
-                </button>
+                <div class="catalog-card-actions">
+                    <button type="button" class="catalog-detail-btn" data-product-id="${product._id}">
+                        <i class="fas fa-eye"></i> Ver detalle
+                    </button>
+                    <button type="button" class="btn-comprar catalog-add-btn" data-product-id="${product._id}">
+                        <i class="fas fa-cart-plus"></i> Agregar
+                    </button>
+                </div>
             </section>
         </article>
     `}).join("")
@@ -344,7 +389,7 @@ function updateCatalogPagination() {
 async function addToCartFromCatalog(productId) {
     const token = localStorage.getItem("access_token")
     if (!token) {
-        alert("Debes iniciar sesión como comprador para agregar productos al carrito.")
+        showAppToast("Debes iniciar sesión como comprador para agregar productos al carrito.")
         return
     }
 
@@ -483,6 +528,15 @@ if (catalogResults) {
     catalogResults.addEventListener("click", async (event) => {
         const target = event.target
         if (!(target instanceof Element)) return
+
+        const detailBtn = target.closest(".catalog-detail-btn")
+        if (detailBtn) {
+            const productId = detailBtn.dataset.productId
+            const product   = catalogItemsCache.get(productId)
+            if (product) await openProductDetail(product)
+            return
+        }
+
         const addBtn = target.closest(".catalog-add-btn")
         if (!addBtn) return
         const productId = addBtn.dataset.productId
@@ -521,7 +575,7 @@ async function getCurrentUser() {
 function buildMenuItems(role) {
     const common = [
         { label: "Mi perfil", action: openProfile },
-        { label: "Mensajes", action: openMessages },
+        { label: "Notificaciones", action: openMessages },
         { label: "Configuración", action: openSettings },
         { label: "Cerrar sesión", action: logout },
     ];
@@ -538,16 +592,17 @@ function buildMenuItems(role) {
     if (role === "comprador") {
         return [
             { label: "Mis pedidos", action: openMyOrders },
+            { label: "Mis reseñas", action: openMyReviews },
+            { label: "Soporte / PQR", action: openMyPQR },
             ...common,
         ];
     }
 
     if (role === "admin") {
         return [
-            { label: "Gestión de usuarios", action: () => openPlaceholder("Gestión de usuarios", "Administra cuentas de usuario desde aquí." ) },
-            { label: "Gestión de productos", action: () => openPlaceholder("Gestión de productos", "Administra el catálogo de productos desde aquí." ) },
-            { label: "Reportes del sistema", action: () => openPlaceholder("Reportes del sistema", "Consulta reportes e indicadores del sistema." ) },
-            { label: "Configuración general", action: openSettings },
+            { label: "Gestión de usuarios", action: openAdminUsers },
+            { label: "Gestión de productos", action: openAdminProducts },
+            { label: "Gestión PQR", action: openAdminPQR },
             ...common,
         ];
     }
@@ -752,8 +807,8 @@ async function openBuyerCart() {
         return fetch(`${API_CONFIG.BASE_URL}${path}`, options)
     }
 
-    async function loadCart({ message = "", kind = "info" } = {}) {
-        if (inFlight) return
+    async function loadCart({ message = "", kind = "info", force = false } = {}) {
+        if (inFlight && !force) return
         inFlight = true
         setCartStatus("Cargando carrito...")
         orderBtn.disabled = true
@@ -876,6 +931,7 @@ async function openBuyerCart() {
             await loadCart({
                 message: `Orden creada: ${order._id || order.id}. Estado: ${order.estado}.`,
                 kind: "success",
+                force: true,
             })
         } catch (error) {
             console.error("Error creando orden:", error)
@@ -1040,10 +1096,17 @@ async function openMyOrders() {
                 </p>
                 <div class="my-order-card-footer">
                     <span class="my-order-total">${formatCop(Number(order.total || 0))}</span>
-                    <button type="button" class="dashboard-action-btn my-order-detail-btn"
-                            style="padding:8px 16px;font-size:0.85rem;">
-                        Ver detalle
-                    </button>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button type="button" class="dashboard-action-btn my-order-detail-btn"
+                                style="padding:8px 16px;font-size:0.85rem;">
+                            Ver detalle
+                        </button>
+                        ${order.estado === "PENDIENTE_PAGO" ? `
+                        <button type="button" class="dashboard-action-btn my-order-delete-btn"
+                                style="padding:8px 16px;font-size:0.85rem;background:#8e2d1c;color:white;">
+                            Eliminar
+                        </button>` : ""}
+                    </div>
                 </div>
             </article>
         `).join("")
@@ -1052,6 +1115,38 @@ async function openMyOrders() {
             const orderId = btn.closest("[data-order-id]").dataset.orderId
             const order   = orders.find(o => o._id === orderId)
             btn.addEventListener("click", () => openOrderDetail(order, authFetch))
+        })
+
+        listEl.querySelectorAll(".my-order-delete-btn").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const card = btn.closest("[data-order-id]")
+                const orderId = card?.dataset.orderId
+                if (!orderId) return
+
+                const confirmed = confirm("¿Deseas eliminar este pedido pendiente de pago?")
+                if (!confirmed) return
+
+                btn.disabled = true
+                try {
+                    const res = await authFetch(`/api/ordenes/${orderId}`, { method: "DELETE" })
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}))
+                        if (res.status === 409) setStatus(err.detail || "Solo se pueden eliminar pedidos pendientes de pago.", "error")
+                        else if (res.status === 403) setStatus("No tienes permiso para eliminar este pedido.", "error")
+                        else if (res.status === 404) setStatus("Pedido no encontrado.", "error")
+                        else setStatus(err.detail || "No fue posible eliminar el pedido.", "error")
+                        btn.disabled = false
+                        return
+                    }
+
+                    setStatus("Pedido eliminado correctamente.", "success")
+                    await openMyOrders()
+                } catch (e) {
+                    console.error("Error eliminando pedido:", e)
+                    setStatus("Error de conexión al eliminar el pedido.", "error")
+                    btn.disabled = false
+                }
+            })
         })
 
     } catch (e) {
@@ -1086,12 +1181,45 @@ async function openOrderDetail(order, authFetch) {
                 <h3>Productos</h3>
                 <div class="my-order-items-list">
                     ${order.items.map(item => `
-                        <div class="my-order-item-row">
+                        <div class="my-order-item-row" data-product-id="${item.productId}">
                             <span class="my-order-item-name">${item.nombreSnapshot}</span>
                             <span class="my-order-item-qty">× ${item.cantidad}</span>
                             <span class="my-order-item-price">${formatCop(Number(item.precioSnapshot || 0))}</span>
                             <span class="my-order-item-sub">${formatCop(Number(item.subtotal || 0))}</span>
+                            ${order.estado === "ENTREGADA" ? `
+                            <button type="button"
+                                    class="review-open-btn"
+                                    data-product-id="${item.productId}"
+                                    data-product-name="${item.nombreSnapshot.replace(/"/g, '&quot;')}">
+                                <i class="fas fa-star"></i> Reseñar
+                            </button>` : ""}
                         </div>
+                        ${order.estado === "ENTREGADA" ? `
+                        <div class="review-form-wrapper hidden" id="review-form-${item.productId}">
+                            <form class="review-inline-form" data-product-id="${item.productId}">
+                                <p class="review-form-title">Reseña de <strong>${item.nombreSnapshot}</strong></p>
+                                <div class="star-rating" role="group" aria-label="Calificación">
+                                    ${[5,4,3,2,1].map(n => `
+                                    <input type="radio" name="rating-${item.productId}" id="star-${item.productId}-${n}" value="${n}" required>
+                                    <label for="star-${item.productId}-${n}" aria-label="${n} estrella${n > 1 ? 's' : ''}">★</label>
+                                    `).join("")}
+                                </div>
+                                <textarea class="review-textarea"
+                                          name="comentario"
+                                          placeholder="Escribe tu comentario (mínimo 3 caracteres)..."
+                                          minlength="3"
+                                          maxlength="1200"
+                                          rows="3"
+                                          required></textarea>
+                                <div class="review-form-status buyer-cart-status hidden"></div>
+                                <div class="review-form-actions">
+                                    <button type="submit" class="dashboard-action-btn review-submit-btn">
+                                        <i class="fas fa-paper-plane"></i> Enviar reseña
+                                    </button>
+                                    <button type="button" class="review-cancel-btn">Cancelar</button>
+                                </div>
+                            </form>
+                        </div>` : ""}
                     `).join("")}
                 </div>
                 <div class="my-order-total-row">
@@ -1130,6 +1258,103 @@ async function openOrderDetail(order, authFetch) {
     )
 
     document.getElementById("orderBackBtn").addEventListener("click", () => openMyOrders())
+
+    // ── Reseñas (solo órdenes ENTREGADA) ───────────────────────
+    if (order.estado === "ENTREGADA") {
+        const panel = document.getElementById("orderDetailPanel")
+
+        panel.querySelectorAll(".review-open-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const productId = btn.dataset.productId
+                const wrapper   = document.getElementById(`review-form-${productId}`)
+                if (!wrapper) return
+                const isHidden = wrapper.classList.contains("hidden")
+                // cerrar todos los formularios abiertos
+                panel.querySelectorAll(".review-form-wrapper").forEach(w => w.classList.add("hidden"))
+                panel.querySelectorAll(".review-open-btn").forEach(b => b.classList.remove("active"))
+                if (isHidden) {
+                    wrapper.classList.remove("hidden")
+                    btn.classList.add("active")
+                    wrapper.querySelector("textarea")?.focus()
+                }
+            })
+        })
+
+        panel.querySelectorAll(".review-cancel-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const wrapper = btn.closest(".review-form-wrapper")
+                if (!wrapper) return
+                const productId = wrapper.id.replace("review-form-", "")
+                wrapper.classList.add("hidden")
+                panel.querySelector(`.review-open-btn[data-product-id="${productId}"]`)
+                     ?.classList.remove("active")
+            })
+        })
+
+        panel.querySelectorAll(".review-inline-form").forEach(form => {
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault()
+                const productId  = form.dataset.productId
+                const statusEl   = form.querySelector(".review-form-status")
+                const submitBtn  = form.querySelector(".review-submit-btn")
+                const ratingInput = form.querySelector(`input[name="rating-${productId}"]:checked`)
+                const comentario  = form.querySelector("textarea[name='comentario']").value.trim()
+
+                function setFormStatus(msg, kind = "info") {
+                    statusEl.textContent = msg
+                    statusEl.classList.remove("hidden", "is-error", "is-success")
+                    if (kind === "error")   statusEl.classList.add("is-error")
+                    if (kind === "success") statusEl.classList.add("is-success")
+                }
+
+                if (!ratingInput) {
+                    setFormStatus("Selecciona una calificación de 1 a 5 estrellas.", "error")
+                    return
+                }
+
+                submitBtn.disabled = true
+                setFormStatus("Enviando reseña...")
+
+                try {
+                    const res = await fetchFn("/api/resenas", {
+                        method: "POST",
+                        body: {
+                            productId,
+                            calificacion: Number(ratingInput.value),
+                            comentario,
+                        },
+                    })
+
+                    if (res.ok) {
+                        setFormStatus("¡Reseña enviada con éxito! Gracias.", "success")
+                        form.querySelector(`input[name="rating-${productId}"]:checked`).checked = false
+                        form.querySelector("textarea").value = ""
+                        submitBtn.disabled = true
+                        // reemplazar botón "Reseñar" por indicador visual
+                        const openBtn = panel.querySelector(`.review-open-btn[data-product-id="${productId}"]`)
+                        if (openBtn) {
+                            openBtn.textContent = "✓ Reseñado"
+                            openBtn.disabled = true
+                            openBtn.classList.add("reviewed")
+                        }
+                        return
+                    }
+
+                    const err = await res.json().catch(() => ({}))
+                    if      (res.status === 403) setFormStatus("Solo puedes reseñar productos que hayas comprado y cuyo pedido ya fue pagado o entregado.", "error")
+                    else if (res.status === 409) setFormStatus("Ya enviaste una reseña para este producto.", "error")
+                    else if (res.status === 401) setFormStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                    else                         setFormStatus(err.detail || "No fue posible enviar la reseña.", "error")
+                    submitBtn.disabled = false
+
+                } catch (err) {
+                    console.error("Error enviando reseña:", err)
+                    setFormStatus("Error de conexión al enviar la reseña.", "error")
+                    submitBtn.disabled = false
+                }
+            })
+        })
+    }
 
     if (!isPending) return
 
@@ -1372,25 +1597,174 @@ function openProfile() {
 }
 
 function openMessages() {
-    openDashboard(
-        "Mensajes",
-        `
-            <div class="dashboard-section">
-                <p>No tienes mensajes nuevos por ahora.</p>
-                <p>Cuando el sistema encuentre notificaciones o respuestas, aparecerán aquí.</p>
-                <div class="dashboard-section" style="margin-top:16px;">
-                    <button type="button" class="dashboard-action-btn" id="dashboardRefreshMessagesBtn">Actualizar mensajes</button>
-                </div>
-            </div>
-        `
-    );
-
-    const refreshBtn = document.getElementById("dashboardRefreshMessagesBtn");
-    if (refreshBtn) {
-        refreshBtn.addEventListener("click", () => {
-            openMessages();
-        });
+    if (!currentUser) {
+        openPlaceholder("Notificaciones", "Inicia sesión para ver tus notificaciones.")
+        return
     }
+
+    const roleLabel = currentUser.role === "comprador"
+        ? "comprador"
+        : (currentUser.role === "caficultor" ? "caficultor" : "admin")
+
+    openDashboard(
+        "Notificaciones",
+        `
+        <div class="my-orders-panel" id="messagesPanel">
+            <div class="buyer-cart-status" id="messagesStatus">Cargando notificaciones...</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0;">
+                <button type="button" class="dashboard-action-btn" id="messagesRefreshBtn">Actualizar</button>
+                <button type="button" class="dashboard-action-btn" id="messagesReadAllBtn">Marcar todo como leído</button>
+                <span id="messagesUnreadChip" style="font-size:12px;font-weight:700;color:#4B2E2B;background:#f7ecdd;border:1px solid #edd4b7;border-radius:999px;padding:6px 10px;">
+                    0 sin leer
+                </span>
+            </div>
+            <div class="my-orders-list" id="messagesList"></div>
+            <p style="font-size:12px;color:#777;margin-top:10px;">Bandeja de notificaciones para rol: <strong>${roleLabel}</strong>.</p>
+        </div>
+        `
+    )
+
+    const token = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("messagesStatus")
+    const listEl = document.getElementById("messagesList")
+    const unreadChipEl = document.getElementById("messagesUnreadChip")
+    const refreshBtn = document.getElementById("messagesRefreshBtn")
+    const readAllBtn = document.getElementById("messagesReadAllBtn")
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error") statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    function formatTypeLabel(type) {
+        const map = {
+            NEW_ORDER_FOR_FARMER: "Nueva orden",
+            ORDER_CREATED_FOR_BUYER: "Orden creada",
+            ORDER_STATUS_FOR_BUYER: "Cambio de estado",
+            PAYMENT_STATUS_FOR_BUYER: "Resultado de pago",
+            PAYMENT_APPROVED_FOR_FARMER: "Pago confirmado",
+            NEW_PQR_FOR_ADMIN: "Nuevo PQR",
+            PQR_STATUS_FOR_USER: "Estado PQR",
+            PQR_ANSWER_FOR_USER: "Respuesta PQR",
+        }
+        return map[type] || type
+    }
+
+    function shortId(value) {
+        if (!value) return ""
+        return String(value).slice(-6).toUpperCase()
+    }
+
+    async function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        if (opts.body) headers["Content-Type"] = "application/json"
+        return fetch(`${API_CONFIG.BASE_URL}${path}`, {
+            method: opts.method || "GET",
+            headers,
+            body: opts.body ? JSON.stringify(opts.body) : undefined,
+        })
+    }
+
+    async function markOneAsRead(notificationId) {
+        const res = await authFetch(`/api/notificaciones/${notificationId}/leer`, { method: "PUT" })
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            throw new Error(err.detail || "No se pudo marcar como leída")
+        }
+    }
+
+    async function markAllAsRead() {
+        const res = await authFetch("/api/notificaciones/leer-todas", { method: "PUT" })
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            throw new Error(err.detail || "No se pudo marcar todo como leído")
+        }
+    }
+
+    async function loadNotifications() {
+        setStatus("Cargando notificaciones...")
+        try {
+            const res = await authFetch("/api/notificaciones?limit=100")
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                else setStatus(err.detail || "No fue posible cargar notificaciones.", "error")
+                return
+            }
+
+            const payload = await res.json()
+            const items = payload.items || []
+            const unread = Number(payload.unread || 0)
+            unreadChipEl.textContent = `${unread} sin leer`
+            statusEl.classList.add("hidden")
+
+            if (!items.length) {
+                listEl.innerHTML = `
+                    <div class="my-orders-empty">
+                        <i class="fas fa-bell-slash"></i>
+                        <p>No tienes notificaciones por ahora.</p>
+                    </div>`
+                return
+            }
+
+            listEl.innerHTML = items.map(n => `
+                <article class="my-order-card" data-notification-id="${n._id}">
+                    <div class="my-order-card-header">
+                        <div>
+                            <p class="my-order-id">${n.title}</p>
+                            <p class="my-order-date">${new Date(n.createdAt).toLocaleString("es-CO")}</p>
+                        </div>
+                        <span class="order-estado-badge" style="color:${n.isRead ? "#666" : "#0f5c2b"};background:${n.isRead ? "#f0f0f0" : "#dff6e8"};">
+                            ${n.isRead ? "Leída" : "Nueva"}
+                        </span>
+                    </div>
+                    <p class="my-order-items-preview">${n.message}</p>
+                    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:10px;">
+                        <span style="font-size:12px;color:#777;">Tipo: ${formatTypeLabel(n.type)}${n.meta?.orderId ? ` · Pedido #${shortId(n.meta.orderId)}` : ""}${n.meta?.ticketId ? ` · Ticket #${shortId(n.meta.ticketId)}` : ""}</span>
+                        ${!n.isRead ? `
+                            <button type="button" class="dashboard-action-btn mark-read-btn" style="padding:7px 10px;font-size:0.82rem;">Marcar leída</button>
+                        ` : ""}
+                    </div>
+                </article>
+            `).join("")
+
+            listEl.querySelectorAll(".mark-read-btn").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    const id = btn.closest("[data-notification-id]")?.dataset.notificationId
+                    if (!id) return
+                    btn.disabled = true
+                    try {
+                        await markOneAsRead(id)
+                        await loadNotifications()
+                    } catch (e) {
+                        showAppToast(e.message || "No se pudo marcar como leída", "error")
+                        btn.disabled = false
+                    }
+                })
+            })
+        } catch (e) {
+            console.error("Error cargando notificaciones:", e)
+            setStatus("Error de conexión al cargar notificaciones.", "error")
+        }
+    }
+
+    refreshBtn?.addEventListener("click", loadNotifications)
+    readAllBtn?.addEventListener("click", async () => {
+        readAllBtn.disabled = true
+        try {
+            await markAllAsRead()
+            showAppToast("Se marcaron todas las notificaciones como leídas.", "success")
+            await loadNotifications()
+        } catch (e) {
+            showAppToast(e.message || "No se pudo marcar todo como leído.", "error")
+        } finally {
+            readAllBtn.disabled = false
+        }
+    })
+
+    loadNotifications()
 }
 
 function openSettings() {
@@ -1485,15 +1859,15 @@ function openSettings() {
                     currentUser = { ...currentUser, ...updatedUser }; 
                     userNameDisplay.textContent = currentUser.full_name || currentUser.email || "Mi perfil";
                     
-                    alert("¡Perfil actualizado correctamente!");
+                    showAppToast("¡Perfil actualizado correctamente!");
                     openProfile(); // Regresa a "Mi perfil" para visualizar el cambio
                 } else {
                     const errorJson = await response.json();
-                    alert("Error guardando el perfil: " + (errorJson.detail || "Revise los campos"));
+                    showAppToast("Error guardando el perfil: " + (errorJson.detail || "Revise los campos"));
                 }
             } catch (error) {
                 console.error("Error updating profile:", error);
-                alert("Ocurrió un error al contactar al servidor.");
+                showAppToast("Ocurrió un error al contactar al servidor.");
             }
         });
     }
@@ -1788,15 +2162,15 @@ function openAddProductModal() {
                         }
                     }
 
-                    alert("¡Producto guardado exitosamente!");
+                    showAppToast("¡Producto guardado exitosamente!");
                     openMyProducts();
                 } else {
                     const err = await response.json();
-                    alert("Error al guardar: " + (err.detail || "Datos inválidos"));
+                    showAppToast("Error al guardar: " + (err.detail || "Datos inválidos"));
                 }
             } catch (error) {
                 console.error("Error creating product:", error);
-                alert("Ocurrió un error al conectar con el servidor.");
+                showAppToast("Ocurrió un error al conectar con el servidor.");
             }
         });
     }
@@ -1981,10 +2355,10 @@ async function deleteProduct(productId) {
             openMyProducts();
         } else {
             const err = await response.json().catch(() => ({}));
-            alert(err.detail || "No fue posible eliminar el producto.");
+            showAppToast(err.detail || "No fue posible eliminar el producto.");
         }
     } catch {
-        alert("Error de conexión con el servidor.");
+        showAppToast("Error de conexión con el servidor.");
     }
 }
 
@@ -2005,8 +2379,8 @@ async function openMySales() {
 
     // Transiciones válidas para el caficultor
     const NEXT_STATES = {
-        PAGADA:         [{ value: "EN_PREPARACION", label: "En preparación" }, { value: "CANCELADA", label: "Cancelar orden" }],
-        EN_PREPARACION: [{ value: "ENVIADA", label: "Enviada" }, { value: "CANCELADA", label: "Cancelar orden" }],
+        PAGADA:         [{ value: "EN_PREPARACION", label: "En preparación" }],
+        EN_PREPARACION: [{ value: "ENVIADA", label: "Enviada" }],
         ENVIADA:        [{ value: "ENTREGADA", label: "Entregada" }],
     }
 
@@ -2124,122 +2498,267 @@ async function openMySales() {
 }
 
 async function openMyStats() {
+    if (!currentUser || currentUser.role !== "caficultor") {
+        openPlaceholder("Métricas y Rendimiento", "Solo los caficultores pueden ver esta sección.")
+        return
+    }
+
+    const today = new Date()
+    const monthAgo = new Date(today)
+    monthAgo.setDate(today.getDate() - 30)
+    const toIsoDate = (d) => d.toISOString().slice(0, 10)
+
     openDashboard(
         "Métricas y Rendimiento",
         `
-            <div class="stats-dashboard" style="display:flex; flex-direction:column; gap:25px;">
-                
-                <!-- KPI Cards -->
-                <div class="stats-kpi-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:15px;">
-                    <div class="kpi-card" style="background:linear-gradient(135deg, #E2902D 0%, #d17e1f 100%); color:white; padding:20px; border-radius:12px; box-shadow:0 6px 15px rgba(226, 144, 45, 0.3); display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                        <i class="fas fa-shopping-cart" style="font-size:24px; margin-bottom:10px; opacity:0.9;"></i>
-                        <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">Ventas Totales</span>
-                        <span style="font-size:28px; font-weight:700; margin-top:5px; font-family:'Poppins', sans-serif;">248</span>
-                    </div>
-
-                    <div class="kpi-card" style="background:#FFFFFF; border:2px solid #E3E3E3; padding:20px; border-radius:12px; display:flex; flex-direction:column; justify-content:center; align-items:center; color:#4B2E2B;">
-                        <i class="fas fa-wallet" style="font-size:24px; color:#E2902D; margin-bottom:10px;"></i>
-                        <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:#878787;">Ingresos Generados</span>
-                        <span style="font-size:24px; font-weight:700; margin-top:5px; font-family:'Poppins', sans-serif;">$12.5M</span>
-                    </div>
-
-                    <div class="kpi-card" style="background:#FFFFFF; border:2px solid #E3E3E3; padding:20px; border-radius:12px; display:flex; flex-direction:column; justify-content:center; align-items:center; color:#4B2E2B;">
-                        <i class="fas fa-star" style="font-size:24px; color:#f59e0b; margin-bottom:10px;"></i>
-                        <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:#878787;">Calificación Promedio</span>
-                        <span style="font-size:28px; font-weight:700; margin-top:5px; font-family:'Poppins', sans-serif;">4.8 <span style="font-size:14px; color:#878787;">/5</span></span>
-                    </div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <label style="font-size:12px;color:#666;font-weight:600;">Desde</label>
+                    <input id="statsDateFrom" type="date" value="${toIsoDate(monthAgo)}" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;">
                 </div>
-
-                <!-- Graphic Placeholder (Ventas por día/mes) -->
-                <div class="stats-chart-section" style="background:#FFFFFF; border:2px solid #E3E3E3; border-radius:12px; padding:20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-                        <h3 style="margin:0; font-size:15px; color:#4B2E2B; font-weight:700;"><i class="fas fa-chart-line" style="color:#E2902D; margin-right:8px;"></i> Comportamiento de Ventas</h3>
-                        <select style="padding:8px 14px; border:2px solid #E3E3E3; border-radius:8px; font-family:'Poppins', sans-serif; font-size:12px; font-weight:600; color:#4B2E2B; outline:none; cursor:pointer; background:transparent;">
-                            <option>Último Mes</option>
-                            <option>Últimos 6 Meses</option>
-                            <option>Este Año</option>
-                        </select>
-                    </div>
-                    
-                    <!-- CSS Bar Chart (Visual Dummy) -->
-                    <div style="display:flex; align-items:flex-end; gap:8px; height:150px; border-bottom:2px solid #f0f0f0; padding-bottom:5px; margin-top:10px;">
-                        <div class="chart-bar" style="flex:1; background:rgba(226, 144, 45, 0.2); border-radius:6px 6px 0 0; height:35%; min-width:20px; transition: all 0.3s ease;"></div>
-                        <div class="chart-bar" style="flex:1; background:rgba(226, 144, 45, 0.3); border-radius:6px 6px 0 0; height:50%; min-width:20px; transition: all 0.3s ease;"></div>
-                        <div class="chart-bar" style="flex:1; background:rgba(226, 144, 45, 0.5); border-radius:6px 6px 0 0; height:20%; min-width:20px; transition: all 0.3s ease;"></div>
-                        <div class="chart-bar" style="flex:1; background:rgba(226, 144, 45, 0.7); border-radius:6px 6px 0 0; height:80%; min-width:20px; transition: all 0.3s ease;"></div>
-                        <div class="chart-active-bar" style="flex:1; background:linear-gradient(0deg, #E2902D 0%, #d17e1f 100%); border-radius:6px 6px 0 0; height:100%; min-width:20px; position:relative; box-shadow:0 -4px 10px rgba(226, 144, 45, 0.3);"></div>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; font-size:11px; color:#878787; font-weight:600; margin-top:8px; padding:0 5px;">
-                        <span>Sem 1</span><span>Sem 2</span><span>Sem 3</span><span>Sem 4</span><span style="color:#E2902D;">Actual</span>
-                    </div>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <label style="font-size:12px;color:#666;font-weight:600;">Hasta</label>
+                    <input id="statsDateTo" type="date" value="${toIsoDate(today)}" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;">
                 </div>
-
-                <!-- Products Split View -->
-                <div class="stats-products-split" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:20px;">
-                    
-                    <!-- Más vendidos -->
-                    <div class="stats-top-products" style="background:#FFFFFF; border:2px solid #E3E3E3; border-radius:12px; padding:20px;">
-                        <h3 style="margin:0 0 15px 0; font-size:15px; color:#4B2E2B; font-weight:700;"><i class="fas fa-fire" style="color:#ef4444; margin-right:8px;"></i> Productos más vendidos</h3>
-                        <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px;">
-                            <li style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f9f9f9; padding-bottom:10px;">
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <div style="background:rgba(226,144,45,0.1); color:#E2902D; width:28px; height:28px; display:flex; justify-content:center; align-items:center; border-radius:50%; font-weight:700; font-size:13px;">1</div>
-                                    <span style="font-size:13px; color:#4B2E2B; font-weight:600;">Café Arábico Especial</span>
-                                </div>
-                                <span style="font-size:12px; font-weight:700; color:#878787;">120 und.</span>
-                            </li>
-                            <li style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f9f9f9; padding-bottom:10px;">
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <div style="background:#f0f0f0; color:#878787; width:28px; height:28px; display:flex; justify-content:center; align-items:center; border-radius:50%; font-weight:700; font-size:13px;">2</div>
-                                    <span style="font-size:13px; color:#4B2E2B; font-weight:600;">Caturra Tostado Medio</span>
-                                </div>
-                                <span style="font-size:12px; font-weight:700; color:#878787;">85 und.</span>
-                            </li>
-                            <li style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <div style="background:#f0f0f0; color:#878787; width:28px; height:28px; display:flex; justify-content:center; align-items:center; border-radius:50%; font-weight:700; font-size:13px;">3</div>
-                                    <span style="font-size:13px; color:#4B2E2B; font-weight:600;">Castilla Exportación</span>
-                                </div>
-                                <span style="font-size:12px; font-weight:700; color:#878787;">43 und.</span>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <!-- Sin movimiento -->
-                    <div class="stats-dead-products" style="background:#FFFFFF; border:2px solid #E3E3E3; border-radius:12px; padding:20px;">
-                        <h3 style="margin:0 0 5px 0; font-size:15px; color:#4B2E2B; font-weight:700;"><i class="fas fa-exclamation-circle" style="color:#E2902D; margin-right:8px;"></i> Productos sin rotación</h3>
-                        <p style="font-size:12px; color:#878787; margin-bottom:15px; line-height:1.4;">Lotes que no han registrado ventas recientemente.</p>
-                        <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px;">
-                            <li style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:#fff4e1; border-radius:8px; border-left:4px solid #E2902D;">
-                                <span style="font-size:13px; color:#4B2E2B; font-weight:600;">Café Borbón - Lote A</span>
-                                <span style="font-size:11px; font-weight:700; background:#E2902D; color:white; padding:3px 8px; border-radius:12px;">+60 días</span>
-                            </li>
-                            <li style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:#f9f9f9; border-radius:8px; border-left:4px solid #dcdcdc;">
-                                <span style="font-size:13px; color:#4B2E2B; font-weight:600;">Libérica Verde 5kg</span>
-                                <span style="font-size:11px; font-weight:600; color:#878787;"><i class="fas fa-clock"></i> 32 días</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
+                <button id="statsApplyBtn" class="dashboard-action-btn" style="padding:9px 14px;">Aplicar filtro</button>
+                <button id="statsExportCsvBtn" class="dashboard-action-btn" style="padding:9px 14px;background:#1f7a3f;color:#fff;">Exportar CSV</button>
+                <button id="statsExportPdfBtn" class="dashboard-action-btn" style="padding:9px 14px;background:#8b3c1a;color:#fff;">Exportar PDF</button>
+                <div id="statsStatus" class="buyer-cart-status" style="margin-left:auto;min-width:220px;">Cargando métricas...</div>
             </div>
-            
-            <style>
-                .kpi-card {
-                    transition: all 0.3s ease;
-                }
-                .kpi-card:hover {
-                    transform: translateY(-4px);
-                    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08) !important;
-                    border-color: rgba(226, 144, 45, 0.3);
-                }
-                .chart-bar:hover {
-                    opacity: 0.8;
-                    cursor: pointer;
-                }
-            </style>
+
+            <div id="statsKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;"></div>
+            <div id="statsDaily" style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">
+                <div id="statsTopProducts" style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"></div>
+                <div id="statsByStatus" style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"></div>
+            </div>
+        </div>
         `
-    );
+    )
+
+    const token = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("statsStatus")
+    const fromEl = document.getElementById("statsDateFrom")
+    const toEl = document.getElementById("statsDateTo")
+    const kpiEl = document.getElementById("statsKpis")
+    const dailyEl = document.getElementById("statsDaily")
+    const topEl = document.getElementById("statsTopProducts")
+    const byStatusEl = document.getElementById("statsByStatus")
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("is-error", "is-success")
+        if (kind === "error") statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    async function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        const options = { method: opts.method || "GET", headers }
+        return fetch(`${API_CONFIG.BASE_URL}${path}`, options)
+    }
+
+    function toBogotaDateKey(dateValue) {
+        const d = new Date(dateValue)
+        if (Number.isNaN(d.getTime())) return null
+        const parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "America/Bogota",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).formatToParts(d)
+        const year = parts.find(p => p.type === "year")?.value
+        const month = parts.find(p => p.type === "month")?.value
+        const day = parts.find(p => p.type === "day")?.value
+        if (!year || !month || !day) return null
+        return `${year}-${month}-${day}`
+    }
+
+    function inRange(dateValue, fromValue, toValue) {
+        const key = toBogotaDateKey(dateValue)
+        if (!key) return false
+        return key >= fromValue && key <= toValue
+    }
+
+    function buildFilenameFromHeader(contentDisposition, fallback) {
+        const match = /filename=([^;]+)/i.exec(contentDisposition || "")
+        if (!match) return fallback
+        return match[1].replace(/"/g, "").trim() || fallback
+    }
+
+    async function exportReport(kind) {
+        const desde = fromEl.value
+        const hasta = toEl.value
+        if (!desde || !hasta || desde > hasta) {
+            setStatus("Rango de fechas inválido para exportar.", "error")
+            return
+        }
+
+        const btn = kind === "csv"
+            ? document.getElementById("statsExportCsvBtn")
+            : document.getElementById("statsExportPdfBtn")
+        const ext = kind === "csv" ? "csv" : "pdf"
+        const endpoint = kind === "csv" ? "/api/reportes/mis-ventas.csv" : "/api/reportes/mis-ventas.pdf"
+        const prev = btn.textContent
+        btn.disabled = true
+        btn.textContent = "Generando..."
+        setStatus(`Generando reporte ${ext.toUpperCase()}...`)
+
+        try {
+            const res = await authFetch(`${endpoint}?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`)
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                setStatus(err.detail || `No fue posible exportar ${ext.toUpperCase()}.`, "error")
+                return
+            }
+
+            const blob = await res.blob()
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.href = url
+            a.download = buildFilenameFromHeader(
+                res.headers.get("Content-Disposition"),
+                `mis_ventas_${desde}_${hasta}.${ext}`
+            )
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            URL.revokeObjectURL(url)
+            setStatus(`Reporte ${ext.toUpperCase()} descargado.`, "success")
+        } catch (e) {
+            console.error(`Error exportando ${ext}:`, e)
+            setStatus(`Error de conexión exportando ${ext.toUpperCase()}.`, "error")
+        } finally {
+            btn.disabled = false
+            btn.textContent = prev
+        }
+    }
+
+    function renderStats(orders, fromValue, toValue) {
+        const filtered = orders.filter(o => inRange(o.createdAt, fromValue, toValue))
+
+        const totalOrders = filtered.length
+        const totalIncome = filtered.reduce((acc, o) => acc + Number(o.caficultor_subtotal || 0), 0)
+        const paidLike = filtered.filter(o => ["PAGADA", "EN_PREPARACION", "ENVIADA", "ENTREGADA"].includes(o.estado))
+        const paidIncome = paidLike.reduce((acc, o) => acc + Number(o.caficultor_subtotal || 0), 0)
+        const avgTicket = totalOrders ? (totalIncome / totalOrders) : 0
+
+        kpiEl.innerHTML = `
+            <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"><div style="font-size:12px;color:#777;">Pedidos con tus productos</div><div style="font-size:26px;font-weight:700;color:#4B2E2B;">${totalOrders}</div></div>
+            <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"><div style="font-size:12px;color:#777;">Ingresos (subtotal propio)</div><div style="font-size:26px;font-weight:700;color:#4B2E2B;">${formatCop(totalIncome)}</div></div>
+            <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"><div style="font-size:12px;color:#777;">Ingresos pagados/en curso</div><div style="font-size:26px;font-weight:700;color:#4B2E2B;">${formatCop(paidIncome)}</div></div>
+            <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;"><div style="font-size:12px;color:#777;">Ticket promedio</div><div style="font-size:26px;font-weight:700;color:#4B2E2B;">${formatCop(avgTicket)}</div></div>
+        `
+
+        const byDay = {}
+        filtered.forEach(order => {
+            const day = toBogotaDateKey(order.createdAt)
+            if (!day) return
+            byDay[day] = (byDay[day] || 0) + Number(order.caficultor_subtotal || 0)
+        })
+        const dayRows = Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0])).slice(-10)
+        const maxDayValue = Math.max(1, ...dayRows.map(([, v]) => Number(v)))
+        dailyEl.innerHTML = `
+            <h3 style="margin:0 0 10px 0;font-size:15px;color:#4B2E2B;">Ventas por día (últimos 10 días con ventas)</h3>
+            ${dayRows.length ? dayRows.map(([day, value]) => `
+                <div style="display:grid;grid-template-columns:110px 1fr 120px;gap:8px;align-items:center;margin:7px 0;">
+                    <span style="font-size:12px;color:#666;">${day}</span>
+                    <div style="height:10px;background:#f3e6d9;border-radius:999px;overflow:hidden;">
+                        <div style="height:100%;width:${Math.max(4, (Number(value) / maxDayValue) * 100)}%;background:#E2902D;"></div>
+                    </div>
+                    <span style="font-size:12px;font-weight:700;color:#4B2E2B;">${formatCop(Number(value))}</span>
+                </div>
+            `).join("") : `<p style="margin:0;color:#777;">Sin ventas en el rango seleccionado.</p>`}
+        `
+
+        const productAgg = {}
+        filtered.forEach(order => {
+            ;(order.caficultor_items || []).forEach(item => {
+                const key = item.productId || item.nombreSnapshot || "producto"
+                if (!productAgg[key]) {
+                    productAgg[key] = {
+                        nombre: item.nombreSnapshot || "Producto",
+                        cantidad: 0,
+                        ingresos: 0,
+                    }
+                }
+                productAgg[key].cantidad += Number(item.cantidad || 0)
+                productAgg[key].ingresos += Number(item.subtotal || 0)
+            })
+        })
+        const topProducts = Object.values(productAgg)
+            .sort((a, b) => (b.cantidad - a.cantidad) || (b.ingresos - a.ingresos))
+            .slice(0, 5)
+
+        topEl.innerHTML = `
+            <h3 style="margin:0 0 10px 0;font-size:15px;color:#4B2E2B;">Top productos vendidos</h3>
+            ${topProducts.length ? `
+            <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;">
+                ${topProducts.map((p, idx) => `
+                    <li style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #f1f1f1;padding-bottom:7px;">
+                        <span style="font-size:13px;color:#4B2E2B;">${idx + 1}. ${p.nombre}</span>
+                        <span style="font-size:12px;color:#666;">${p.cantidad} und | ${formatCop(p.ingresos)}</span>
+                    </li>
+                `).join("")}
+            </ul>` : `<p style="margin:0;color:#777;">No hay productos vendidos en este rango.</p>`}
+        `
+
+        const statusCount = {}
+        filtered.forEach(o => {
+            statusCount[o.estado] = (statusCount[o.estado] || 0) + 1
+        })
+        const statusRows = Object.entries(statusCount).sort((a, b) => b[1] - a[1])
+        byStatusEl.innerHTML = `
+            <h3 style="margin:0 0 10px 0;font-size:15px;color:#4B2E2B;">Distribución por estado</h3>
+            ${statusRows.length ? statusRows.map(([st, count]) => `
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f1f1;">
+                    <span style="font-size:13px;color:#4B2E2B;">${st}</span>
+                    <strong style="font-size:13px;color:#4B2E2B;">${count}</strong>
+                </div>
+            `).join("") : `<p style="margin:0;color:#777;">Sin datos para mostrar.</p>`}
+        `
+
+        setStatus(`Rango ${fromValue} a ${toValue}. ${totalOrders} pedido(s) encontrado(s).`, "success")
+    }
+
+    let allSales = []
+    async function loadAndRender() {
+        const desde = fromEl.value
+        const hasta = toEl.value
+        if (!desde || !hasta || desde > hasta) {
+            setStatus("Rango inválido. Verifica las fechas.", "error")
+            return
+        }
+        setStatus("Cargando métricas...")
+        try {
+            const res = await authFetch("/api/ordenes/ventas")
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                else if (res.status === 403) setStatus("No tienes permiso para ver métricas.", "error")
+                else setStatus(err.detail || "No fue posible cargar métricas.", "error")
+                return
+            }
+            allSales = await res.json()
+            renderStats(allSales, desde, hasta)
+        } catch (e) {
+            console.error("Error cargando métricas:", e)
+            setStatus("Error de conexión al cargar métricas.", "error")
+        }
+    }
+
+    document.getElementById("statsApplyBtn")?.addEventListener("click", () => {
+        if (allSales.length) {
+            renderStats(allSales, fromEl.value, toEl.value)
+        } else {
+            loadAndRender()
+        }
+    })
+    document.getElementById("statsExportCsvBtn")?.addEventListener("click", () => exportReport("csv"))
+    document.getElementById("statsExportPdfBtn")?.addEventListener("click", () => exportReport("pdf"))
+
+    await loadAndRender()
 }
 
 
@@ -2348,17 +2867,17 @@ async function completeGoogleRegistration(tempToken, role) {
 
             const authenticated = await applyAuthenticatedState()
             if (authenticated) {
-                alert("¡Registro exitoso! Bienvenido a Colficultor.")
+                showAppToast("¡Registro exitoso! Bienvenido a Colficultor.")
             } else {
-                alert("Registro completado. Por favor inicia sesión.")
+                showAppToast("Registro completado. Por favor inicia sesión.")
             }
         } else {
             const err = await response.json()
-            alert(`Error al completar el registro: ${err.detail || "Inténtalo de nuevo."}`)
+            showAppToast(`Error al completar el registro: ${err.detail || "Inténtalo de nuevo."}`)
         }
     } catch (error) {
         console.error("Error al completar registro Google:", error)
-        alert("Ocurrió un error de conexión. Verifica que el servidor esté corriendo.")
+        showAppToast("Ocurrió un error de conexión. Verifica que el servidor esté corriendo.")
     }
 }
 
@@ -2421,7 +2940,7 @@ function cleanGoogleParams() {
         const authenticated = await applyAuthenticatedState()
         if (!authenticated) {
             localStorage.removeItem("access_token")
-            alert("No se pudo cargar tu perfil. Por favor intenta de nuevo.")
+            showAppToast("No se pudo cargar tu perfil. Por favor intenta de nuevo.")
         }
 
     } else if (googlePending) {
@@ -2435,7 +2954,1119 @@ function cleanGoogleParams() {
         // — Error en el flujo OAuth → mostrar mensaje y abrir login —
         console.error("[Google OAuth] Error recibido:", googleError)
         cleanGoogleParams()
-        alert(getGoogleErrorMessage(googleError))
+        showAppToast(getGoogleErrorMessage(googleError))
         if (modal) modal.classList.add("active")
     }
 })()
+
+// ── Detalle de producto + reseñas públicas ───────────────────────
+async function openProductDetail(product) {
+    const imgHtml = product.urls_imagenes && product.urls_imagenes.length > 0
+        ? `<div class="product-detail-img-wrapper">
+               <img src="${product.urls_imagenes[0]}" alt="${product.nombre}" class="product-detail-img" />
+           </div>`
+        : `<div class="product-detail-img-wrapper">
+               <div class="product-detail-img-placeholder"><i class="fas fa-image"></i></div>
+           </div>`
+
+    openDashboard(product.nombre, `
+        <div class="product-detail-panel" id="productDetailPanel">
+            ${imgHtml}
+            <div class="product-detail-info">
+                <p class="product-detail-region">
+                    <i class="fas fa-map-marker-alt"></i>
+                    ${product.region || product.origen || "Sin región"}
+                </p>
+                <p class="product-detail-price">${formatCop(Number(product.precio || 0))}</p>
+                <p class="product-detail-stock">Stock disponible: ${product.stock ?? 0}</p>
+                <p class="product-detail-desc">${product.descripcion || "Sin descripción"}</p>
+                <button type="button" class="dashboard-action-btn product-detail-add-btn"
+                        data-product-id="${product._id}"
+                        style="width:100%;justify-content:center;">
+                    <i class="fas fa-shopping-cart"></i> Agregar al carrito
+                </button>
+            </div>
+
+            <div class="product-reviews-section">
+                <h3 class="product-reviews-heading">Reseñas</h3>
+                <div class="product-reviews-summary" id="reviewsSummary">
+                    <span class="reviews-loading">Cargando reseñas...</span>
+                </div>
+                <div class="product-reviews-list" id="reviewsList"></div>
+            </div>
+        </div>
+    `)
+
+    // Agregar al carrito desde el detalle
+    document.getElementById("productDetailPanel")
+        .querySelector(".product-detail-add-btn")
+        .addEventListener("click", () => addToCartFromCatalog(product._id))
+
+    // Cargar reseñas (endpoint público — sin token)
+    const summaryEl = document.getElementById("reviewsSummary")
+    const listEl    = document.getElementById("reviewsList")
+
+    function renderStars(rating, total = 5) {
+        return Array.from({ length: total }, (_, i) =>
+            `<span class="review-star${i < Math.round(rating) ? " filled" : ""}" aria-hidden="true">★</span>`
+        ).join("")
+    }
+
+    try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/productos/${product._id}/resenas`)
+
+        if (!res.ok) {
+            summaryEl.innerHTML = `<span class="reviews-empty">No se pudieron cargar las reseñas.</span>`
+            return
+        }
+
+        const data = await res.json()   // { productId, promedio, total, items }
+
+        if (data.total === 0) {
+            summaryEl.innerHTML = `<span class="reviews-empty">Este producto aún no tiene reseñas.</span>`
+            return
+        }
+
+        summaryEl.innerHTML = `
+            <div class="reviews-summary-box">
+                <span class="reviews-avg-score">${data.promedio.toFixed(1)}</span>
+                <div class="reviews-avg-stars" aria-label="Promedio: ${data.promedio.toFixed(1)} de 5">
+                    ${renderStars(data.promedio)}
+                </div>
+                <span class="reviews-total">${data.total} reseña${data.total !== 1 ? "s" : ""}</span>
+            </div>`
+
+        listEl.innerHTML = data.items.map(r => `
+            <article class="product-review-item">
+                <div class="product-review-item-header">
+                    <div class="review-stars" aria-label="Calificación: ${r.calificacion} de 5">
+                        ${renderStars(r.calificacion)}
+                    </div>
+                    <span class="my-review-date">
+                        ${new Date(r.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                </div>
+                <p class="my-review-comentario">${r.comentario}</p>
+            </article>
+        `).join("")
+
+    } catch (e) {
+        console.error("Error cargando reseñas del producto:", e)
+        summaryEl.innerHTML = `<span class="reviews-empty">Error de conexión al cargar reseñas.</span>`
+    }
+}
+
+// ── Mis reseñas ──────────────────────────────────────────────────
+async function openMyReviews() {
+    if (!currentUser || currentUser.role !== "comprador") {
+        openPlaceholder("Mis reseñas", "Solo los compradores pueden ver sus reseñas.")
+        return
+    }
+
+    openDashboard("Mis reseñas", `
+        <div class="my-reviews-panel" id="myReviewsPanel">
+            <div class="buyer-cart-status" id="myReviewsStatus">Cargando reseñas...</div>
+            <div class="my-reviews-list" id="myReviewsList"></div>
+        </div>
+    `)
+
+    const token    = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("myReviewsStatus")
+    const listEl   = document.getElementById("myReviewsList")
+    const authFetch = makeOrderAuthFetch(token)
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    function renderStars(rating) {
+        return Array.from({ length: 5 }, (_, i) =>
+            `<span class="review-star${i < rating ? " filled" : ""}" aria-hidden="true">★</span>`
+        ).join("")
+    }
+
+    try {
+        const res = await authFetch("/api/resenas/mis")
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            if      (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+            else if (res.status === 403) setStatus("No tienes permiso para ver reseñas.", "error")
+            else                         setStatus(err.detail || "No fue posible cargar las reseñas.", "error")
+            return
+        }
+
+        const reviews = await res.json()
+        statusEl.classList.add("hidden")
+
+        if (!reviews.length) {
+            listEl.innerHTML = `
+                <div class="my-orders-empty">
+                    <i class="fas fa-star"></i>
+                    <p>Aún no has escrito ninguna reseña.</p>
+                    <p>Compra y recibe productos para poder reseñarlos.</p>
+                </div>`
+            return
+        }
+
+        listEl.innerHTML = reviews.map(r => `
+            <article class="my-review-card">
+                <div class="my-review-card-header">
+                    <div class="review-stars" aria-label="Calificación: ${r.calificacion} de 5">
+                        ${renderStars(r.calificacion)}
+                    </div>
+                    <span class="my-review-date">
+                        ${new Date(r.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                </div>
+                <p class="my-review-comentario">${r.comentario}</p>
+                <p class="my-review-product-id">Producto: <code>${r.productId}</code></p>
+            </article>
+        `).join("")
+
+    } catch (e) {
+        console.error("Error cargando reseñas:", e)
+        setStatus("Error de conexión al cargar las reseñas.", "error")
+    }
+}
+
+// ── Soporte / PQR — comprador ────────────────────────────────────
+async function openMyPQR() {
+    if (!currentUser) {
+        openPlaceholder("Soporte / PQR", "Debes iniciar sesión para acceder al soporte.")
+        return
+    }
+
+    openDashboard("Soporte / PQR", `
+        <div class="pqr-panel" id="pqrPanel">
+
+            <section class="pqr-create-section">
+                <h3 class="pqr-section-heading">Crear ticket</h3>
+                <form class="pqr-form" id="pqrCreateForm" novalidate>
+                    <div class="pqr-form-row">
+                        <label class="pqr-label" for="pqrTipo">Tipo</label>
+                        <select class="pqr-select" id="pqrTipo" name="tipo" required>
+                            <option value="" disabled selected>Selecciona un tipo…</option>
+                            <option value="PETICION">Petición</option>
+                            <option value="QUEJA">Queja</option>
+                            <option value="RECLAMO">Reclamo</option>
+                            <option value="SOPORTE">Soporte técnico</option>
+                        </select>
+                    </div>
+                    <div class="pqr-form-row">
+                        <label class="pqr-label" for="pqrAsunto">Asunto</label>
+                        <input class="pqr-input" id="pqrAsunto" name="asunto"
+                               type="text" placeholder="Resumen breve del problema…"
+                               minlength="3" maxlength="200" required />
+                    </div>
+                    <div class="pqr-form-row">
+                        <label class="pqr-label" for="pqrDescripcion">Descripción</label>
+                        <textarea class="pqr-textarea" id="pqrDescripcion" name="descripcion"
+                                  placeholder="Describe el problema con detalle…"
+                                  minlength="5" maxlength="3000" rows="4" required></textarea>
+                    </div>
+                    <div class="buyer-cart-status hidden" id="pqrCreateStatus"></div>
+                    <button type="submit" class="dashboard-action-btn pqr-submit-btn">
+                        <i class="fas fa-paper-plane"></i> Enviar ticket
+                    </button>
+                </form>
+            </section>
+
+            <section class="pqr-list-section">
+                <h3 class="pqr-section-heading">Mis tickets</h3>
+                <div class="buyer-cart-status" id="pqrListStatus">Cargando tickets…</div>
+                <div class="pqr-list" id="pqrList"></div>
+            </section>
+
+        </div>
+    `)
+
+    const token     = localStorage.getItem("access_token")
+    const authFetch = makeOrderAuthFetch(token)
+
+    // ── helpers locales ──
+    const PQR_TIPO_MAP = {
+        PETICION: "Petición",
+        QUEJA:    "Queja",
+        RECLAMO:  "Reclamo",
+        SOPORTE:  "Soporte técnico",
+    }
+
+    const PQR_ESTADO_MAP = {
+        ABIERTO:    { label: "Abierto",      color: "#7a4800", bg: "#fdf3e7" },
+        EN_PROCESO: { label: "En proceso",   color: "#1a5c8e", bg: "#e8f4ff" },
+        CERRADO:    { label: "Cerrado",      color: "#0f5c2b", bg: "#d4f5e2" },
+    }
+
+    function pqrBadge(estado) {
+        const e = PQR_ESTADO_MAP[estado] || { label: estado, color: "#555", bg: "#f0f0f0" }
+        return `<span class="pqr-estado-badge" style="color:${e.color};background:${e.bg};">${e.label}</span>`
+    }
+
+    function setCreateStatus(msg, kind = "info") {
+        const el = document.getElementById("pqrCreateStatus")
+        if (!el) return
+        el.textContent = msg
+        el.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   el.classList.add("is-error")
+        if (kind === "success") el.classList.add("is-success")
+    }
+
+    function setListStatus(msg, kind = "info") {
+        const el = document.getElementById("pqrListStatus")
+        if (!el) return
+        el.textContent = msg
+        el.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   el.classList.add("is-error")
+        if (kind === "success") el.classList.add("is-success")
+    }
+
+    // ── cargar lista de tickets ──
+    async function loadMyTickets() {
+        const listEl = document.getElementById("pqrList")
+        setListStatus("Cargando tickets…")
+        if (listEl) listEl.innerHTML = ""
+
+        try {
+            const res = await authFetch("/api/pqr/mis")
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if      (res.status === 401) setListStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                else                         setListStatus(err.detail || "No fue posible cargar los tickets.", "error")
+                return
+            }
+
+            const tickets = await res.json()
+            const statusEl = document.getElementById("pqrListStatus")
+            if (statusEl) statusEl.classList.add("hidden")
+
+            if (!listEl) return
+
+            if (!tickets.length) {
+                listEl.innerHTML = `
+                    <div class="my-orders-empty">
+                        <i class="fas fa-headset"></i>
+                        <p>No tienes tickets de soporte aún.</p>
+                        <p>Usa el formulario de arriba para crear uno.</p>
+                    </div>`
+                return
+            }
+
+            listEl.innerHTML = tickets.map(t => {
+                const ticketId = t.id || t._id
+                const mensajes = Array.isArray(t.mensajes) ? t.mensajes : []
+                const fallbackRespuesta = (!mensajes.length && t.respuesta)
+                    ? [{ autorRole: "ADMIN", mensaje: t.respuesta, createdAt: t.updatedAt || t.createdAt }]
+                    : []
+                const timeline = [...mensajes, ...fallbackRespuesta]
+
+                return `
+                <article class="pqr-card" data-ticket-id="${ticketId}">
+                    <div class="pqr-card-header">
+                        <div class="pqr-card-meta">
+                            <span class="pqr-tipo-tag">${PQR_TIPO_MAP[t.tipo] || t.tipo}</span>
+                            ${pqrBadge(t.estado)}
+                        </div>
+                        <span class="pqr-card-date">
+                            ${new Date(t.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                    </div>
+                    <p class="pqr-card-asunto">${t.asunto}</p>
+                    <p class="pqr-card-desc">${t.descripcion}</p>
+
+                    <div style="margin-top:10px;border:1px solid #eee;border-radius:10px;padding:10px;background:#fff;">
+                        <p class="pqr-respuesta-label" style="margin-bottom:8px;"><i class="fas fa-comments"></i> Conversación</p>
+                        <div style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;">
+                            ${timeline.length ? timeline.map(m => {
+                                const isAdmin = String(m.autorRole || "").toUpperCase() === "ADMIN"
+                                return `
+                                <div style="align-self:${isAdmin ? "flex-start" : "flex-end"};max-width:90%;background:${isAdmin ? "#f4f7fb" : "#fff4e1"};border:1px solid ${isAdmin ? "#dce7f7" : "#f3d7ac"};border-radius:10px;padding:8px 10px;">
+                                    <div style="font-size:11px;color:#777;margin-bottom:3px;">${isAdmin ? "Soporte" : "Tú"} · ${new Date(m.createdAt).toLocaleString("es-CO")}</div>
+                                    <div style="font-size:13px;color:#333;white-space:pre-wrap;">${m.mensaje}</div>
+                                </div>`
+                            }).join("") : `<p style="font-size:12px;color:#777;">Aún no hay mensajes.</p>`}
+                        </div>
+                    </div>
+
+                    <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+                        <textarea class="pqr-textarea pqr-user-msg-input" rows="2" maxlength="3000" placeholder="Escribe un mensaje al equipo de soporte..."></textarea>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <button type="button" class="dashboard-action-btn pqr-user-msg-btn" style="padding:8px 12px;">
+                                <i class="fas fa-paper-plane"></i> Enviar mensaje
+                            </button>
+                            <div class="buyer-cart-status hidden pqr-user-msg-feedback" style="margin:0;"></div>
+                        </div>
+                    </div>
+                </article>
+            `
+            }).join("")
+
+            listEl.querySelectorAll(".pqr-user-msg-btn").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    const card = btn.closest("[data-ticket-id]")
+                    const ticketId = card?.dataset.ticketId
+                    const input = card?.querySelector(".pqr-user-msg-input")
+                    const feedbackEl = card?.querySelector(".pqr-user-msg-feedback")
+                    const mensaje = input?.value?.trim() || ""
+                    if (!ticketId || !input || !feedbackEl) return
+
+                    function setMsgFeedback(msg, kind = "info") {
+                        feedbackEl.textContent = msg
+                        feedbackEl.classList.remove("hidden", "is-error", "is-success")
+                        if (kind === "error") feedbackEl.classList.add("is-error")
+                        if (kind === "success") feedbackEl.classList.add("is-success")
+                    }
+
+                    if (!mensaje) {
+                        setMsgFeedback("Escribe un mensaje antes de enviar.", "error")
+                        return
+                    }
+
+                    btn.disabled = true
+                    setMsgFeedback("Enviando mensaje...")
+                    try {
+                        const res = await authFetch(`/api/pqr/${ticketId}/mensajes`, {
+                            method: "POST",
+                            body: { mensaje },
+                        })
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}))
+                            setMsgFeedback(err.detail || "No fue posible enviar el mensaje.", "error")
+                            btn.disabled = false
+                            return
+                        }
+                        setMsgFeedback("Mensaje enviado.", "success")
+                        input.value = ""
+                        await loadMyTickets()
+                    } catch {
+                        setMsgFeedback("Error de conexión al enviar el mensaje.", "error")
+                        btn.disabled = false
+                    }
+                })
+            })
+
+        } catch (e) {
+            console.error("Error cargando tickets PQR:", e)
+            setListStatus("Error de conexión al cargar los tickets.", "error")
+        }
+    }
+
+    // ── envío del formulario ──
+    document.getElementById("pqrCreateForm").addEventListener("submit", async (e) => {
+        e.preventDefault()
+        const form       = e.currentTarget
+        const submitBtn  = form.querySelector(".pqr-submit-btn")
+        const tipo        = form.querySelector("#pqrTipo").value
+        const asunto      = form.querySelector("#pqrAsunto").value.trim()
+        const descripcion = form.querySelector("#pqrDescripcion").value.trim()
+
+        if (!tipo) {
+            setCreateStatus("Selecciona un tipo de ticket.", "error")
+            return
+        }
+
+        submitBtn.disabled = true
+        setCreateStatus("Enviando ticket…")
+
+        try {
+            const res = await authFetch("/api/pqr", {
+                method: "POST",
+                body: { tipo, asunto, descripcion },
+            })
+
+            if (res.ok) {
+                setCreateStatus("¡Ticket creado con éxito! Te responderemos pronto.", "success")
+                form.reset()
+                await loadMyTickets()
+                return
+            }
+
+            const err = await res.json().catch(() => ({}))
+            if      (res.status === 401) setCreateStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+            else if (res.status === 422) setCreateStatus("Revisa los campos: " + (err.detail?.[0]?.msg || "datos inválidos."), "error")
+            else                         setCreateStatus(err.detail || "No fue posible crear el ticket.", "error")
+            submitBtn.disabled = false
+
+        } catch (err) {
+            console.error("Error creando ticket PQR:", err)
+            setCreateStatus("Error de conexión al enviar el ticket.", "error")
+            submitBtn.disabled = false
+        }
+    })
+
+    await loadMyTickets()
+}
+
+// ── Gestión PQR — admin ───────────────────────────────────────────
+async function openAdminPQR() {
+    if (!currentUser || currentUser.role !== "admin") {
+        openPlaceholder("Gestión PQR", "Solo los administradores pueden gestionar tickets.")
+        return
+    }
+
+    openDashboard("Gestión PQR", `
+        <div class="pqr-admin-panel" id="pqrAdminPanel">
+            <div class="pqr-admin-filters">
+                <label class="pqr-label" for="pqrAdminFilter">Filtrar por estado</label>
+                <select class="pqr-select" id="pqrAdminFilter">
+                    <option value="">Todos</option>
+                    <option value="ABIERTO">Abierto</option>
+                    <option value="EN_PROCESO">En proceso</option>
+                    <option value="CERRADO">Cerrado</option>
+                </select>
+            </div>
+            <div class="buyer-cart-status" id="pqrAdminStatus">Cargando tickets…</div>
+            <div class="pqr-list" id="pqrAdminList"></div>
+        </div>
+    `)
+
+    const token     = localStorage.getItem("access_token")
+    const authFetch = makeOrderAuthFetch(token)
+
+    const PQR_TIPO_MAP = {
+        PETICION: "Petición",
+        QUEJA:    "Queja",
+        RECLAMO:  "Reclamo",
+        SOPORTE:  "Soporte técnico",
+    }
+
+    const PQR_ESTADO_MAP = {
+        ABIERTO:    { label: "Abierto",    color: "#7a4800", bg: "#fdf3e7" },
+        EN_PROCESO: { label: "En proceso", color: "#1a5c8e", bg: "#e8f4ff" },
+        CERRADO:    { label: "Cerrado",    color: "#0f5c2b", bg: "#d4f5e2" },
+    }
+
+    function pqrBadge(estado) {
+        const e = PQR_ESTADO_MAP[estado] || { label: estado, color: "#555", bg: "#f0f0f0" }
+        return `<span class="pqr-estado-badge" style="color:${e.color};background:${e.bg};">${e.label}</span>`
+    }
+
+    function setAdminStatus(msg, kind = "info") {
+        const el = document.getElementById("pqrAdminStatus")
+        if (!el) return
+        el.textContent = msg
+        el.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error")   el.classList.add("is-error")
+        if (kind === "success") el.classList.add("is-success")
+    }
+
+    let allTickets = []
+
+    function renderTickets(tickets) {
+        const listEl = document.getElementById("pqrAdminList")
+        if (!listEl) return
+
+        if (!tickets.length) {
+            listEl.innerHTML = `
+                <div class="my-orders-empty">
+                    <i class="fas fa-inbox"></i>
+                    <p>No hay tickets con este filtro.</p>
+                </div>`
+            return
+        }
+
+        listEl.innerHTML = tickets.map(t => {
+            const ticketId = t.id || t._id
+            const mensajes = Array.isArray(t.mensajes) ? t.mensajes : []
+            const fallbackRespuesta = (!mensajes.length && t.respuesta)
+                ? [{ autorRole: "ADMIN", mensaje: t.respuesta, createdAt: t.updatedAt || t.createdAt }]
+                : []
+            const timeline = [...mensajes, ...fallbackRespuesta]
+
+            return `
+            <article class="pqr-card pqr-admin-card" data-ticket-id="${ticketId}">
+                <div class="pqr-card-header">
+                    <div class="pqr-card-meta">
+                        <span class="pqr-tipo-tag">${PQR_TIPO_MAP[t.tipo] || t.tipo}</span>
+                        ${pqrBadge(t.estado)}
+                    </div>
+                    <span class="pqr-card-date">
+                        ${new Date(t.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                </div>
+                <p class="pqr-card-asunto">${t.asunto}</p>
+                <p class="pqr-card-desc">${t.descripcion}</p>
+
+                <div style="margin-top:10px;border:1px solid #eee;border-radius:10px;padding:10px;background:#fff;">
+                    <p class="pqr-respuesta-label" style="margin-bottom:8px;"><i class="fas fa-comments"></i> Conversación</p>
+                    <div style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;">
+                        ${timeline.length ? timeline.map(m => {
+                            const isAdmin = String(m.autorRole || "").toUpperCase() === "ADMIN"
+                            return `
+                            <div style="align-self:${isAdmin ? "flex-end" : "flex-start"};max-width:90%;background:${isAdmin ? "#fff4e1" : "#f4f7fb"};border:1px solid ${isAdmin ? "#f3d7ac" : "#dce7f7"};border-radius:10px;padding:8px 10px;">
+                                <div style="font-size:11px;color:#777;margin-bottom:3px;">${isAdmin ? "Admin" : "Usuario"} · ${new Date(m.createdAt).toLocaleString("es-CO")}</div>
+                                <div style="font-size:13px;color:#333;white-space:pre-wrap;">${m.mensaje}</div>
+                            </div>`
+                        }).join("") : `<p style="font-size:12px;color:#777;">Sin mensajes todavía.</p>`}
+                    </div>
+                </div>
+
+                <div class="pqr-admin-actions">
+                    <div class="pqr-admin-estado-row">
+                        <select class="pqr-select pqr-admin-estado-select" style="flex:1;">
+                            <option value="">Cambiar estado…</option>
+                            ${Object.entries(PQR_ESTADO_MAP).map(([val, { label }]) =>
+                                `<option value="${val}" ${t.estado === val ? "selected" : ""}>${label}</option>`
+                            ).join("")}
+                        </select>
+                        <button type="button" class="dashboard-action-btn pqr-admin-estado-btn"
+                                style="padding:8px 14px;font-size:0.85rem;background:var(--color-secondary);color:#fff;">
+                            Aplicar
+                        </button>
+                    </div>
+                    <div class="pqr-admin-feedback buyer-cart-status hidden"></div>
+
+                    <button type="button" class="pqr-responder-toggle" data-ticket-id="${t.id || t._id}">
+                        <i class="fas fa-reply"></i> Enviar mensaje
+                    </button>
+                    <div class="pqr-responder-form hidden">
+                        <textarea class="pqr-textarea pqr-respuesta-input"
+                                  placeholder="Escribe un mensaje para el usuario…"
+                                  minlength="3" maxlength="3000" rows="3"></textarea>
+                        <div class="pqr-responder-actions">
+                            <button type="button" class="dashboard-action-btn pqr-responder-btn"
+                                    style="flex:1;justify-content:center;background:var(--color-primary-dark);color:#fff;">
+                                <i class="fas fa-paper-plane"></i> Enviar mensaje
+                            </button>
+                            <button type="button" class="pqr-responder-cancel">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        `
+        }).join("")
+
+        // ── event listeners por tarjeta ──
+        listEl.querySelectorAll(".pqr-admin-card").forEach(card => {
+            const ticketId  = card.dataset.ticketId
+            const feedbackEl = card.querySelector(".pqr-admin-feedback")
+
+            function setFeedback(msg, kind = "info") {
+                feedbackEl.textContent = msg
+                feedbackEl.classList.remove("hidden", "is-error", "is-success")
+                if (kind === "error")   feedbackEl.classList.add("is-error")
+                if (kind === "success") feedbackEl.classList.add("is-success")
+            }
+
+            // Cambiar estado
+            card.querySelector(".pqr-admin-estado-btn")?.addEventListener("click", async () => {
+                const select   = card.querySelector(".pqr-admin-estado-select")
+                const newEstado = select.value
+                if (!newEstado) {
+                    setFeedback("Selecciona un estado.", "error")
+                    return
+                }
+                setFeedback("Actualizando estado…")
+                try {
+                    const res = await authFetch(`/api/pqr/${ticketId}/estado`, {
+                        method: "PUT",
+                        body: { estado: newEstado },
+                    })
+                    if (res.ok) {
+                        setFeedback("Estado actualizado.", "success")
+                        // actualizar badge en la tarjeta sin recargar todo
+                        const e = PQR_ESTADO_MAP[newEstado] || { label: newEstado, color: "#555", bg: "#f0f0f0" }
+                        card.querySelector(".pqr-estado-badge").textContent = e.label
+                        card.querySelector(".pqr-estado-badge").style.color = e.color
+                        card.querySelector(".pqr-estado-badge").style.background = e.bg
+                        // actualizar en el array local
+                        const t = allTickets.find(t => (t.id || t._id) === ticketId)
+                        if (t) t.estado = newEstado
+                        return
+                    }
+                    const err = await res.json().catch(() => ({}))
+                    if      (res.status === 401) setFeedback("Sesión no válida.", "error")
+                    else if (res.status === 403) setFeedback("Sin permiso para cambiar el estado.", "error")
+                    else if (res.status === 404) setFeedback("Ticket no encontrado.", "error")
+                    else                         setFeedback(err.detail || "No fue posible actualizar.", "error")
+                } catch {
+                    setFeedback("Error de conexión.", "error")
+                }
+            })
+
+            // Toggle formulario de respuesta
+            card.querySelector(".pqr-responder-toggle")?.addEventListener("click", () => {
+                const form = card.querySelector(".pqr-responder-form")
+                const isHidden = form.classList.contains("hidden")
+                form.classList.toggle("hidden", !isHidden)
+                if (isHidden) form.querySelector("textarea")?.focus()
+            })
+
+            card.querySelector(".pqr-responder-cancel")?.addEventListener("click", () => {
+                card.querySelector(".pqr-responder-form")?.classList.add("hidden")
+            })
+
+            // Enviar mensaje
+            card.querySelector(".pqr-responder-btn")?.addEventListener("click", async () => {
+                const textarea  = card.querySelector(".pqr-respuesta-input")
+                const respuesta = textarea.value.trim()
+                const sendBtn   = card.querySelector(".pqr-responder-btn")
+
+                if (respuesta.length < 3) {
+                    setFeedback("El mensaje debe tener al menos 3 caracteres.", "error")
+                    return
+                }
+
+                sendBtn.disabled = true
+                setFeedback("Enviando mensaje…")
+
+                try {
+                    const res = await authFetch(`/api/pqr/${ticketId}/mensajes`, {
+                        method: "POST",
+                        body: { mensaje: respuesta },
+                    })
+                    if (res.ok) {
+                        setFeedback("Mensaje enviado correctamente.", "success")
+                        const updated = await res.json().catch(() => null)
+                        if (updated) {
+                            const idx = allTickets.findIndex(t => (t.id || t._id) === ticketId)
+                            if (idx >= 0) allTickets[idx] = updated
+                        }
+                        const currentFilter = document.getElementById("pqrAdminFilter")?.value || ""
+                        const filtered = currentFilter ? allTickets.filter(t => t.estado === currentFilter) : allTickets
+                        renderTickets(filtered)
+                        return
+                    }
+                    const err = await res.json().catch(() => ({}))
+                    if      (res.status === 401) setFeedback("Sesión no válida.", "error")
+                    else if (res.status === 403) setFeedback("Sin permiso para responder.", "error")
+                    else if (res.status === 404) setFeedback("Ticket no encontrado.", "error")
+                    else                         setFeedback(err.detail || "No fue posible enviar el mensaje.", "error")
+                    sendBtn.disabled = false
+                } catch {
+                    setFeedback("Error de conexión.", "error")
+                    sendBtn.disabled = false
+                }
+            })
+        })
+    }
+
+    // ── filtro local ──
+    document.getElementById("pqrAdminFilter")?.addEventListener("change", (e) => {
+        const val     = e.target.value
+        const filtered = val ? allTickets.filter(t => t.estado === val) : allTickets
+        renderTickets(filtered)
+    })
+
+    // ── carga inicial ──
+    try {
+        const res = await authFetch("/api/pqr")
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            if      (res.status === 401) setAdminStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+            else if (res.status === 403) setAdminStatus("No tienes permiso para ver todos los tickets.", "error")
+            else                         setAdminStatus(err.detail || "No fue posible cargar los tickets.", "error")
+            return
+        }
+
+        allTickets = await res.json()
+        document.getElementById("pqrAdminStatus")?.classList.add("hidden")
+        renderTickets(allTickets)
+
+    } catch (e) {
+        console.error("Error cargando tickets admin PQR:", e)
+        setAdminStatus("Error de conexión al cargar los tickets.", "error")
+    }
+}
+
+// ── Gestión de usuarios — admin ─────────────────────────────────
+async function openAdminUsers() {
+    if (!currentUser || currentUser.role !== "admin") {
+        openPlaceholder("Gestión de usuarios", "Solo los administradores pueden gestionar usuarios.")
+        return
+    }
+
+    openDashboard("Gestión de usuarios", `
+        <div class="pqr-admin-panel" id="adminUsersPanel">
+            <div class="pqr-admin-filters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+                <div>
+                    <label class="pqr-label" for="adminUsersRoleFilter">Filtrar por rol</label>
+                    <select class="pqr-select" id="adminUsersRoleFilter">
+                        <option value="">Todos</option>
+                        <option value="comprador">Comprador</option>
+                        <option value="caficultor">Caficultor</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="pqr-label" for="adminUsersActiveFilter">Estado</label>
+                    <select class="pqr-select" id="adminUsersActiveFilter">
+                        <option value="">Todos</option>
+                        <option value="true">Activos</option>
+                        <option value="false">Inactivos</option>
+                    </select>
+                </div>
+                <div style="grid-column:span 2;">
+                    <label class="pqr-label" for="adminUsersSearch">Buscar usuario</label>
+                    <input class="pqr-input" id="adminUsersSearch" placeholder="Correo o nombre..." />
+                </div>
+                <div style="display:flex;align-items:end;">
+                    <button class="dashboard-action-btn" id="adminUsersReloadBtn" style="width:100%;">Actualizar</button>
+                </div>
+            </div>
+            <div class="buyer-cart-status" id="adminUsersStatus">Cargando usuarios…</div>
+            <div class="pqr-list" id="adminUsersList"></div>
+        </div>
+    `)
+
+    const token = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("adminUsersStatus")
+    const listEl = document.getElementById("adminUsersList")
+    const roleFilterEl = document.getElementById("adminUsersRoleFilter")
+    const activeFilterEl = document.getElementById("adminUsersActiveFilter")
+    const searchEl = document.getElementById("adminUsersSearch")
+    const reloadBtn = document.getElementById("adminUsersReloadBtn")
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error") statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    async function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        if (opts.body) headers["Content-Type"] = "application/json"
+        return fetch(`${API_CONFIG.API_USERS_URL}${path}`, {
+            method: opts.method || "GET",
+            headers,
+            body: opts.body ? JSON.stringify(opts.body) : undefined,
+        })
+    }
+
+    function roleLabel(role) {
+        if (role === "comprador") return "Comprador"
+        if (role === "caficultor") return "Caficultor"
+        if (role === "admin") return "Admin"
+        return role || "N/A"
+    }
+
+    function getUserId(u) {
+        return u._id || u.id || ""
+    }
+
+    async function loadUsers() {
+        setStatus("Cargando usuarios…")
+        listEl.innerHTML = ""
+
+        const query = new URLSearchParams()
+        if (roleFilterEl.value) query.set("role", roleFilterEl.value)
+        if (activeFilterEl.value) query.set("is_active", activeFilterEl.value)
+        const search = searchEl.value.trim()
+        if (search) query.set("search", search)
+        query.set("limit", "300")
+
+        try {
+            const res = await authFetch(`?${query.toString()}`)
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                else if (res.status === 403) setStatus("No tienes permisos para gestionar usuarios.", "error")
+                else setStatus(err.detail || "No fue posible cargar usuarios.", "error")
+                return
+            }
+
+            const users = await res.json()
+            statusEl.classList.add("hidden")
+            if (!users.length) {
+                listEl.innerHTML = `
+                    <div class="my-orders-empty">
+                        <i class="fas fa-users-slash"></i>
+                        <p>No se encontraron usuarios para este filtro.</p>
+                    </div>`
+                return
+            }
+
+            listEl.innerHTML = users.map(u => {
+                const userId = getUserId(u)
+                const isSelf = userId === (currentUser._id || currentUser.id)
+                const activeBadge = u.is_active
+                    ? '<span class="order-estado-badge" style="color:#0f5c2b;background:#d4f5e2;">Activo</span>'
+                    : '<span class="order-estado-badge" style="color:#666;background:#f0f0f0;">Inactivo</span>'
+                return `
+                <article class="pqr-card" data-user-id="${userId}">
+                    <div class="pqr-card-header">
+                        <div class="pqr-card-meta">
+                            <span class="pqr-tipo-tag">${roleLabel(u.role)}</span>
+                            ${activeBadge}
+                        </div>
+                        <span class="pqr-card-date">${new Date(u.created_at).toLocaleDateString("es-CO")}</span>
+                    </div>
+                    <p class="pqr-card-asunto">${escapeHtml(u.full_name || "(Sin nombre)")}</p>
+                    <p class="pqr-card-desc">${escapeHtml(u.email || "")}</p>
+                    <div class="pqr-admin-actions">
+                        <div class="pqr-admin-estado-row">
+                            <select class="pqr-select admin-user-role-select" style="flex:1;" ${isSelf ? "disabled" : ""}>
+                                <option value="comprador" ${u.role === "comprador" ? "selected" : ""}>Comprador</option>
+                                <option value="caficultor" ${u.role === "caficultor" ? "selected" : ""}>Caficultor</option>
+                            </select>
+                            <button type="button" class="dashboard-action-btn admin-user-role-btn"
+                                    style="padding:8px 12px;font-size:0.85rem;background:#1a5c8e;color:#fff;" ${isSelf ? "disabled" : ""}>
+                                Guardar rol
+                            </button>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <button type="button" class="dashboard-action-btn admin-user-delete-btn"
+                                    style="padding:8px 12px;font-size:0.85rem;background:#8e2d1c;color:#fff;" ${isSelf ? "disabled" : ""}>
+                                Eliminar usuario
+                            </button>
+                            ${isSelf ? '<span style="font-size:12px;color:#777;">Tu usuario admin no es editable aquí.</span>' : ''}
+                        </div>
+                        <div class="buyer-cart-status hidden admin-user-feedback"></div>
+                    </div>
+                </article>`
+            }).join("")
+
+            listEl.querySelectorAll("[data-user-id]").forEach(card => {
+                const userId = card.dataset.userId
+                const roleSelect = card.querySelector(".admin-user-role-select")
+                const roleBtn = card.querySelector(".admin-user-role-btn")
+                const deleteBtn = card.querySelector(".admin-user-delete-btn")
+                const feedbackEl = card.querySelector(".admin-user-feedback")
+
+                function setFeedback(msg, kind = "info") {
+                    feedbackEl.textContent = msg
+                    feedbackEl.classList.remove("hidden", "is-error", "is-success")
+                    if (kind === "error") feedbackEl.classList.add("is-error")
+                    if (kind === "success") feedbackEl.classList.add("is-success")
+                }
+
+                roleBtn?.addEventListener("click", async () => {
+                    const newRole = roleSelect?.value
+                    if (!newRole) return
+                    roleBtn.disabled = true
+                    setFeedback("Guardando rol...")
+                    try {
+                        const res = await authFetch(`/${userId}/role`, {
+                            method: "PATCH",
+                            body: { role: newRole },
+                        })
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}))
+                            setFeedback(err.detail || "No fue posible cambiar el rol.", "error")
+                            roleBtn.disabled = false
+                            return
+                        }
+                        setFeedback("Rol actualizado correctamente.", "success")
+                        await loadUsers()
+                    } catch {
+                        setFeedback("Error de conexión al actualizar rol.", "error")
+                        roleBtn.disabled = false
+                    }
+                })
+
+                deleteBtn?.addEventListener("click", async () => {
+                    const ok = confirm("¿Deseas eliminar permanentemente este usuario de la base de datos?")
+                    if (!ok) return
+                    deleteBtn.disabled = true
+                    setFeedback("Eliminando usuario...")
+                    try {
+                        const res = await authFetch(`/${userId}`, { method: "DELETE" })
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}))
+                            setFeedback(err.detail || "No fue posible eliminar el usuario.", "error")
+                            deleteBtn.disabled = false
+                            return
+                        }
+                        setFeedback("Usuario eliminado permanentemente.", "success")
+                        await loadUsers()
+                    } catch {
+                        setFeedback("Error de conexión al eliminar usuario.", "error")
+                        deleteBtn.disabled = false
+                    }
+                })
+            })
+        } catch (e) {
+            console.error("Error cargando usuarios:", e)
+            setStatus("Error de conexión al cargar usuarios.", "error")
+        }
+    }
+
+    roleFilterEl?.addEventListener("change", loadUsers)
+    activeFilterEl?.addEventListener("change", loadUsers)
+    searchEl?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault()
+            loadUsers()
+        }
+    })
+    reloadBtn?.addEventListener("click", loadUsers)
+
+    await loadUsers()
+}
+
+// ── Gestión de productos — admin ────────────────────────────────
+async function openAdminProducts() {
+    if (!currentUser || currentUser.role !== "admin") {
+        openPlaceholder("Gestión de productos", "Solo los administradores pueden gestionar productos.")
+        return
+    }
+
+    openDashboard("Gestión de productos", `
+        <div class="pqr-admin-panel" id="adminProductsPanel">
+            <div class="pqr-admin-filters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+                <div>
+                    <label class="pqr-label" for="adminProductsStatusFilter">Estado</label>
+                    <select class="pqr-select" id="adminProductsStatusFilter">
+                        <option value="">Todos</option>
+                        <option value="true">Activos</option>
+                        <option value="false">Inactivos</option>
+                    </select>
+                </div>
+                <div style="grid-column:span 2;">
+                    <label class="pqr-label" for="adminProductsSearch">Buscar producto</label>
+                    <input class="pqr-input" id="adminProductsSearch" placeholder="Nombre o región..." />
+                </div>
+                <div style="display:flex;align-items:end;">
+                    <button class="dashboard-action-btn" id="adminProductsReloadBtn" style="width:100%;">Actualizar</button>
+                </div>
+            </div>
+            <div class="buyer-cart-status" id="adminProductsStatus">Cargando productos…</div>
+            <div class="pqr-list" id="adminProductsList"></div>
+        </div>
+    `)
+
+    const token = localStorage.getItem("access_token")
+    const statusEl = document.getElementById("adminProductsStatus")
+    const listEl = document.getElementById("adminProductsList")
+    const stateFilterEl = document.getElementById("adminProductsStatusFilter")
+    const searchEl = document.getElementById("adminProductsSearch")
+    const reloadBtn = document.getElementById("adminProductsReloadBtn")
+
+    function setStatus(msg, kind = "info") {
+        statusEl.textContent = msg
+        statusEl.classList.remove("hidden", "is-error", "is-success")
+        if (kind === "error") statusEl.classList.add("is-error")
+        if (kind === "success") statusEl.classList.add("is-success")
+    }
+
+    async function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        if (opts.body) headers["Content-Type"] = "application/json"
+        return fetch(`${API_CONFIG.BASE_URL}${path}`, {
+            method: opts.method || "GET",
+            headers,
+            body: opts.body ? JSON.stringify(opts.body) : undefined,
+        })
+    }
+
+    let allProducts = []
+
+    function renderProducts(products) {
+        if (!products.length) {
+            listEl.innerHTML = `
+                <div class="my-orders-empty">
+                    <i class="fas fa-box-open"></i>
+                    <p>No se encontraron productos con ese filtro.</p>
+                </div>`
+            return
+        }
+
+        listEl.innerHTML = products.map(p => {
+            const productId = p._id || p.id
+            const statusBadge = p.is_active
+                ? '<span class="order-estado-badge" style="color:#0f5c2b;background:#d4f5e2;">Activo</span>'
+                : '<span class="order-estado-badge" style="color:#666;background:#f0f0f0;">Inactivo</span>'
+            return `
+            <article class="pqr-card" data-product-id="${productId}">
+                <div class="pqr-card-header">
+                    <div class="pqr-card-meta">
+                        <span class="pqr-tipo-tag">${escapeHtml(p.region || "Sin región")}</span>
+                        ${statusBadge}
+                    </div>
+                    <span class="pqr-card-date">${formatCop(Number(p.precio || 0))}</span>
+                </div>
+                <p class="pqr-card-asunto">${escapeHtml(p.nombre || "Producto")}</p>
+                <p class="pqr-card-desc">${escapeHtml(p.descripcion || "")}</p>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                    <span style="font-size:12px;color:#777;">Stock: ${Number(p.stock || 0)} · Caficultor: ${escapeHtml(p.caficultor_id || "")}</span>
+                    <button type="button" class="dashboard-action-btn admin-product-delete-btn"
+                            style="padding:8px 12px;font-size:0.85rem;background:#8e2d1c;color:#fff;" ${!p.is_active ? "disabled" : ""}>
+                        Eliminar producto
+                    </button>
+                </div>
+                <div class="buyer-cart-status hidden admin-product-feedback"></div>
+            </article>`
+        }).join("")
+
+        listEl.querySelectorAll("[data-product-id]").forEach(card => {
+            const productId = card.dataset.productId
+            const deleteBtn = card.querySelector(".admin-product-delete-btn")
+            const feedbackEl = card.querySelector(".admin-product-feedback")
+
+            function setFeedback(msg, kind = "info") {
+                feedbackEl.textContent = msg
+                feedbackEl.classList.remove("hidden", "is-error", "is-success")
+                if (kind === "error") feedbackEl.classList.add("is-error")
+                if (kind === "success") feedbackEl.classList.add("is-success")
+            }
+
+            deleteBtn?.addEventListener("click", async () => {
+                const ok = confirm("¿Deseas eliminar este producto del catálogo?")
+                if (!ok) return
+                deleteBtn.disabled = true
+                setFeedback("Eliminando producto...")
+                try {
+                    const res = await authFetch(`/api/productos/${productId}`, { method: "DELETE" })
+                    if (!res.ok && res.status !== 204) {
+                        const err = await res.json().catch(() => ({}))
+                        setFeedback(err.detail || "No fue posible eliminar el producto.", "error")
+                        deleteBtn.disabled = false
+                        return
+                    }
+                    setFeedback("Producto eliminado correctamente.", "success")
+                    await loadProducts()
+                } catch {
+                    setFeedback("Error de conexión al eliminar producto.", "error")
+                    deleteBtn.disabled = false
+                }
+            })
+        })
+    }
+
+    function applyFilters() {
+        const stateVal = stateFilterEl.value
+        const term = searchEl.value.trim().toLowerCase()
+
+        let filtered = [...allProducts]
+        if (stateVal === "true") filtered = filtered.filter(p => p.is_active)
+        if (stateVal === "false") filtered = filtered.filter(p => !p.is_active)
+        if (term) {
+            filtered = filtered.filter(p =>
+                String(p.nombre || "").toLowerCase().includes(term) ||
+                String(p.region || "").toLowerCase().includes(term) ||
+                String(p.descripcion || "").toLowerCase().includes(term)
+            )
+        }
+        renderProducts(filtered)
+    }
+
+    async function loadProducts() {
+        setStatus("Cargando productos…")
+        listEl.innerHTML = ""
+        try {
+            const res = await authFetch("/api/productos/admin/todos")
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                if (res.status === 401) setStatus("Sesión no válida. Inicia sesión de nuevo.", "error")
+                else if (res.status === 403) setStatus("No tienes permisos para gestionar productos.", "error")
+                else setStatus(err.detail || "No fue posible cargar productos.", "error")
+                return
+            }
+            allProducts = await res.json()
+            statusEl.classList.add("hidden")
+            applyFilters()
+        } catch (e) {
+            console.error("Error cargando productos admin:", e)
+            setStatus("Error de conexión al cargar productos.", "error")
+        }
+    }
+
+    stateFilterEl?.addEventListener("change", applyFilters)
+    searchEl?.addEventListener("input", applyFilters)
+    reloadBtn?.addEventListener("click", loadProducts)
+
+    await loadProducts()
+}

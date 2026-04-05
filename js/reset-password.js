@@ -1,5 +1,40 @@
 // Reset Password JavaScript
 document.addEventListener('DOMContentLoaded', function() {
+    function showAppToast(message, kind = 'info', timeoutMs = 3200) {
+        const body = document.body;
+        if (!body) return;
+
+        let host = document.getElementById('appToastHost');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'appToastHost';
+            host.style.cssText = 'position:fixed;top:18px;right:18px;z-index:100000;display:flex;flex-direction:column;gap:10px;max-width:min(92vw,380px);';
+            body.appendChild(host);
+        }
+
+        const toast = document.createElement('div');
+        const palette = {
+            info: { bg: '#ffffff', border: '#e6c9a6', color: '#4B2E2B' },
+            success: { bg: '#effcf4', border: '#81d4a1', color: '#0f5c2b' },
+            error: { bg: '#fff1f1', border: '#f0a7a7', color: '#8e1f1f' },
+        };
+        const theme = palette[kind] || palette.info;
+        toast.style.cssText = `border:1px solid ${theme.border};background:${theme.bg};color:${theme.color};padding:12px 14px;border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.12);font-size:0.92rem;line-height:1.35;opacity:0;transform:translateY(-6px);transition:opacity .2s ease, transform .2s ease;`;
+        toast.textContent = String(message || '');
+        host.appendChild(toast);
+
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+        });
+
+        window.setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-6px)';
+            window.setTimeout(() => toast.remove(), 220);
+        }, timeoutMs);
+    }
+
     const form = document.getElementById('resetPasswordForm');
     const newPasswordInput = document.getElementById('newPassword');
     const confirmPasswordInput = document.getElementById('confirmPassword');
@@ -17,8 +52,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const token = urlParams.get('token');
 
     if (!token) {
-        alert('Token de recuperación no encontrado. Por favor, solicita un nuevo enlace de recuperación.');
-        window.location.href = 'index.html';
+        showAppToast('Token de recuperación no encontrado. Por favor, solicita un nuevo enlace de recuperación.', 'error');
+        window.setTimeout(() => { window.location.href = 'index.html'; }, 1200);
         return;
     }
 
@@ -90,12 +125,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Client-side validation
         if (!checkPasswordStrength(newPassword)) {
-            alert('La contraseña debe tener al menos 8 caracteres e incluir mayúsculas, minúsculas, números y símbolos.');
+            showAppToast('La contraseña debe tener al menos 8 caracteres e incluir mayúsculas, minúsculas, números y símbolos.');
             return;
         }
 
         if (newPassword !== confirmPassword) {
-            alert('Las contraseñas no coinciden.');
+            showAppToast('Las contraseñas no coinciden.');
             return;
         }
 
@@ -120,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (response.ok) {
                 // Success - Show alert and redirect link
-                alert('¡Contraseña restablecida exitosamente!');
+                showAppToast('¡Contraseña restablecida exitosamente!');
 
                 // Replace form with simple success message and link
                 form.innerHTML = `
@@ -145,13 +180,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         errorMsg = data.detail[0].msg || data.detail[0].message || errorMsg;
                     }
                 }
-                alert(`Error: ${errorMsg}`);
+                showAppToast(`Error: ${errorMsg}`);
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-key"></i> Restablecer Contraseña';
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Ocurrió un error al intentar restablecer la contraseña. Verifica que el servidor esté corriendo.');
+            showAppToast('Ocurrió un error al intentar restablecer la contraseña. Verifica que el servidor esté corriendo.');
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fas fa-key"></i> Restablecer Contraseña';
         }
@@ -164,8 +199,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
 
             if (!response.ok || !data.valid) {
-                alert('El enlace de recuperación no es válido o ha expirado. Por favor, solicita un nuevo enlace.');
-                window.location.href = 'index.html';
+                showAppToast('El enlace de recuperación no es válido o ha expirado. Por favor, solicita un nuevo enlace.');
+                window.setTimeout(() => { window.location.href = 'index.html'; }, 1200);
             }
         } catch (error) {
             console.warn('No se pudo validar el token, continuando...', error);
