@@ -451,6 +451,206 @@ textarea {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
+/* ── Sección Carrito (flex row para agrupar botones) ── */
+.Carrito {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ── Botón de notificaciones ── */
+.notif-wrapper {
+    position: relative;
+}
+
+.notif-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #e03535;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    pointer-events: none;
+    border: 2px solid transparent;
+}
+
+/* ── Panel desplegable de notificaciones ── */
+.notif-panel {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 10px);
+    width: min(340px, calc(100vw - 2 * var(--space-3)));
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    z-index: 80;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.notif-panel:not(.hidden) {
+    animation: menuSlideIn 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.notif-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid #f1e2d6;
+    gap: 8px;
+}
+
+.notif-panel-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.notif-panel-unread {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #4b2e2b;
+    background: #f7ecdd;
+    border: 1px solid #edd4b7;
+    border-radius: 999px;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+
+.notif-read-all-btn {
+    border: none;
+    background: none;
+    color: var(--color-primary-dark);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+    transition: background var(--transition);
+}
+
+.notif-read-all-btn:hover {
+    background: rgba(226, 144, 45, 0.12);
+}
+
+.notif-panel-body {
+    overflow-y: auto;
+    max-height: 380px;
+}
+
+.notif-item {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f5ede5;
+    cursor: default;
+    transition: background var(--transition);
+}
+
+.notif-item:last-child {
+    border-bottom: none;
+}
+
+.notif-item:not(.notif-read):hover {
+    background: #fdf8f2;
+}
+
+.notif-item.notif-read {
+    opacity: 0.7;
+}
+
+.notif-item-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 3px;
+}
+
+.notif-item-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    line-height: 1.3;
+}
+
+.notif-item-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.notif-item.notif-read .notif-item-dot {
+    background: #ccc;
+}
+
+.notif-item-msg {
+    font-size: 0.8rem;
+    color: #555;
+    line-height: 1.4;
+    margin-bottom: 5px;
+}
+
+.notif-item-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.notif-item-meta {
+    font-size: 0.72rem;
+    color: #999;
+}
+
+.notif-mark-btn {
+    border: none;
+    background: none;
+    color: var(--color-primary-dark);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background var(--transition);
+    flex-shrink: 0;
+}
+
+.notif-mark-btn:hover {
+    background: rgba(226, 144, 45, 0.15);
+}
+
+.notif-panel-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: #aaa;
+    font-size: 0.88rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.notif-panel-empty i {
+    font-size: 1.6rem;
+    color: #ddd;
+}
+
 /* Filtros */
 .container_2 {
     background: var(--surface);

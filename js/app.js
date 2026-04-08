@@ -22,7 +22,11 @@ const dashboardPanel = document.getElementById("dashboardPanel")
 const dashboardTitle = document.getElementById("dashboardTitle")
 const dashboardBody = document.getElementById("dashboardBody")
 const closeDashboardBtn = document.getElementById("closeDashboardBtn")
-const cartBtn = document.getElementById("cartBtn")
+const cartBtn    = document.getElementById("cartBtn")
+const cartBadge  = document.getElementById("cartBadge")
+const notifBtn   = document.getElementById("notifBtn")
+const notifPanel = document.getElementById("notifPanel")
+const notifBadge = document.getElementById("notifBadge")
 
 let currentUser = null
 
@@ -512,6 +516,7 @@ async function addToCartFromCatalog(productId) {
 
         if (response.ok) {
             setCatalogStatus("Producto agregado al carrito.", "success")
+            updateCartBadge()
             return
         }
 
@@ -688,7 +693,6 @@ async function getCurrentUser() {
 function buildMenuItems(role) {
     const common = [
         { label: "Mi perfil", action: openProfile },
-        { label: "Notificaciones", action: openMessages },
         { label: "Configuración", action: openSettings },
         { label: "Cerrar sesión", action: logout },
     ];
@@ -789,6 +793,10 @@ async function logout() {
     userMenu.classList.add("hidden");
     userMenuBtn.setAttribute("aria-expanded", "false");
     dashboardPanel?.classList.add("hidden");
+    // Ocultar badges al cerrar sesión
+    if (notifBadge) notifBadge.classList.add("hidden")
+    if (cartBadge)  cartBadge.classList.add("hidden")
+    closeNotifPanel()
 
     if (!logoutSuccess) {
         console.warn("Logout completed locally but backend logout may have failed.");
@@ -1009,6 +1017,7 @@ async function openBuyerCart() {
             const updatedCart = await response.json()
             renderCart(updatedCart)
             setCartStatus("Carrito actualizado.", "success")
+            updateCartBadge()
         } catch (error) {
             console.error("Error actualizando carrito:", error)
             setCartStatus("Error de conexión al actualizar carrito.", "error")
@@ -1047,6 +1056,20 @@ async function openBuyerCart() {
                 kind: "success",
                 force: true,
             })
+            updateCartBadge()
+
+            // Botón para ir directamente a Mis pedidos
+            const summary = document.getElementById("buyerCartSummary")
+            if (summary && !document.getElementById("goToOrdersBtn")) {
+                const goBtn = document.createElement("button")
+                goBtn.id = "goToOrdersBtn"
+                goBtn.type = "button"
+                goBtn.className = "dashboard-action-btn"
+                goBtn.style.cssText = "background:#1f7a3f;color:#fff;margin-top:8px;"
+                goBtn.innerHTML = '<i class="fas fa-box-open"></i> Ver mis pedidos'
+                goBtn.addEventListener("click", () => openMyOrders())
+                summary.appendChild(goBtn)
+            }
         } catch (error) {
             console.error("Error creando orden:", error)
             setCartStatus("Error de conexión al crear la orden.", "error")
@@ -2002,6 +2025,8 @@ async function applyAuthenticatedState() {
     }
     currentUser = user;
     showUserMenu(user);
+    updateNotifBadge();
+    updateCartBadge();
     return true;
 }
 
@@ -2022,6 +2047,223 @@ cartBtn?.addEventListener("click", () => {
     openBuyerCart();
 });
 
+// ── Panel de notificaciones ───────────────────────────────────────────────────
+
+function openNotifPanel() {
+    notifPanel.classList.remove("hidden")
+    notifBtn.setAttribute("aria-expanded", "true")
+    renderNotifPanel()
+}
+
+function closeNotifPanel() {
+    notifPanel.classList.add("hidden")
+    notifBtn.setAttribute("aria-expanded", "false")
+}
+
+notifBtn?.addEventListener("click", (e) => {
+    e.stopPropagation()
+    const isOpen = !notifPanel.classList.contains("hidden")
+    if (isOpen) {
+        closeNotifPanel()
+    } else {
+        // Cierra el menú de usuario si está abierto
+        userMenu.classList.add("hidden")
+        userMenuBtn.setAttribute("aria-expanded", "false")
+        openNotifPanel()
+    }
+})
+
+/** Actualiza el badge del carrito con la suma de cantidades. */
+async function updateCartBadge() {
+    if (!currentUser || currentUser.role !== "comprador" || !cartBadge) return
+    try {
+        const token = localStorage.getItem("access_token")
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/carrito`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return
+        const cart = await res.json()
+        const total = (cart.items || []).reduce((sum, item) => sum + Number(item.cantidad || 0), 0)
+        if (total > 0) {
+            cartBadge.textContent = total > 99 ? "99+" : String(total)
+            cartBadge.classList.remove("hidden")
+        } else {
+            cartBadge.classList.add("hidden")
+        }
+    } catch { /* silencioso */ }
+}
+
+/** Actualiza el badge con el conteo de no leídas (sin abrir el panel). */
+async function updateNotifBadge() {
+    if (!currentUser || !notifBadge) return
+    try {
+        const token = localStorage.getItem("access_token")
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/notificaciones?limit=1`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return
+        const payload = await res.json()
+        const unread = Number(payload.unread || 0)
+        if (unread > 0) {
+            notifBadge.textContent = unread > 99 ? "99+" : String(unread)
+            notifBadge.classList.remove("hidden")
+        } else {
+            notifBadge.classList.add("hidden")
+        }
+    } catch { /* silencioso */ }
+}
+
+/** Carga notificaciones y renderiza el contenido del panel. */
+async function renderNotifPanel() {
+    if (!notifPanel) return
+
+    const token = localStorage.getItem("access_token")
+
+    if (!currentUser || !token) {
+        notifPanel.innerHTML = `
+            <div class="notif-panel-header">
+                <span class="notif-panel-title"><i class="fas fa-bell"></i> Notificaciones</span>
+            </div>
+            <div class="notif-panel-empty">
+                <i class="fas fa-lock"></i>
+                <span>Inicia sesión para ver tus notificaciones.</span>
+            </div>`
+        return
+    }
+
+    // Estado de carga
+    notifPanel.innerHTML = `
+        <div class="notif-panel-header">
+            <span class="notif-panel-title"><i class="fas fa-bell"></i> Notificaciones</span>
+        </div>
+        <div class="notif-panel-empty">
+            <i class="fas fa-circle-notch fa-spin" style="color:var(--color-primary);"></i>
+            <span>Cargando…</span>
+        </div>`
+
+    function shortId(v) { return v ? String(v).slice(-6).toUpperCase() : "" }
+
+    function typeLabel(type) {
+        return ({
+            NEW_ORDER_FOR_FARMER:     "Nueva orden",
+            ORDER_CREATED_FOR_BUYER:  "Orden creada",
+            ORDER_STATUS_FOR_BUYER:   "Cambio de estado",
+            PAYMENT_STATUS_FOR_BUYER: "Resultado de pago",
+            PAYMENT_APPROVED_FOR_FARMER: "Pago confirmado",
+            NEW_PQR_FOR_ADMIN:        "Nuevo PQR",
+            PQR_STATUS_FOR_USER:      "Estado PQR",
+            PQR_ANSWER_FOR_USER:      "Respuesta PQR",
+        })[type] || type
+    }
+
+    async function authFetch(path, opts = {}) {
+        const headers = { Authorization: `Bearer ${token}` }
+        if (opts.body) headers["Content-Type"] = "application/json"
+        return fetch(`${API_CONFIG.BASE_URL}${path}`, {
+            method: opts.method || "GET",
+            headers,
+            body: opts.body ? JSON.stringify(opts.body) : undefined,
+        })
+    }
+
+    try {
+        const res = await authFetch("/api/notificaciones?limit=50")
+        if (!res.ok) {
+            notifPanel.innerHTML = `
+                <div class="notif-panel-header">
+                    <span class="notif-panel-title"><i class="fas fa-bell"></i> Notificaciones</span>
+                </div>
+                <div class="notif-panel-empty">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>No se pudieron cargar las notificaciones.</span>
+                </div>`
+            return
+        }
+
+        const payload = await res.json()
+        const items   = payload.items || []
+        const unread  = Number(payload.unread || 0)
+
+        // Actualizar badge
+        if (notifBadge) {
+            if (unread > 0) {
+                notifBadge.textContent = unread > 99 ? "99+" : String(unread)
+                notifBadge.classList.remove("hidden")
+            } else {
+                notifBadge.classList.add("hidden")
+            }
+        }
+
+        const bodyHtml = items.length
+            ? items.map(n => {
+                const meta = []
+                if (n.type)           meta.push(typeLabel(n.type))
+                if (n.meta?.orderId)  meta.push(`Pedido #${shortId(n.meta.orderId)}`)
+                if (n.meta?.ticketId) meta.push(`Ticket #${shortId(n.meta.ticketId)}`)
+                const timeStr = new Date(n.createdAt).toLocaleString("es-CO", {
+                    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
+                })
+                return `
+                <div class="notif-item${n.isRead ? " notif-read" : ""}" data-nid="${n._id}">
+                    <div class="notif-item-top">
+                        <span class="notif-item-title">${n.title}</span>
+                        <span class="notif-item-dot"></span>
+                    </div>
+                    <p class="notif-item-msg">${n.message}</p>
+                    <div class="notif-item-footer">
+                        <span class="notif-item-meta">${timeStr}${meta.length ? " · " + meta.join(" · ") : ""}</span>
+                        ${!n.isRead ? `<button class="notif-mark-btn" data-nid="${n._id}">Leída</button>` : ""}
+                    </div>
+                </div>`
+            }).join("")
+            : `<div class="notif-panel-empty"><i class="fas fa-bell-slash"></i><span>No tienes notificaciones por ahora.</span></div>`
+
+        notifPanel.innerHTML = `
+            <div class="notif-panel-header">
+                <span class="notif-panel-title"><i class="fas fa-bell"></i> Notificaciones</span>
+                <span class="notif-panel-unread">${unread} sin leer</span>
+                ${unread > 0 ? `<button class="notif-read-all-btn" id="notifReadAllBtn">Leer todo</button>` : ""}
+            </div>
+            <div class="notif-panel-body">${bodyHtml}</div>`
+
+        // Marcar una como leída
+        notifPanel.querySelectorAll(".notif-mark-btn").forEach(btn => {
+            btn.addEventListener("click", async (e) => {
+                e.stopPropagation()
+                const id = btn.dataset.nid
+                btn.disabled = true
+                try {
+                    await authFetch(`/api/notificaciones/${id}/leer`, { method: "PUT" })
+                    await renderNotifPanel()
+                } catch {
+                    btn.disabled = false
+                }
+            })
+        })
+
+        // Marcar todas como leídas
+        document.getElementById("notifReadAllBtn")?.addEventListener("click", async (e) => {
+            e.stopPropagation()
+            try {
+                await authFetch("/api/notificaciones/leer-todas", { method: "PUT" })
+                await renderNotifPanel()
+            } catch { /* silencioso */ }
+        })
+
+    } catch {
+        notifPanel.innerHTML = `
+            <div class="notif-panel-header">
+                <span class="notif-panel-title"><i class="fas fa-bell"></i> Notificaciones</span>
+            </div>
+            <div class="notif-panel-empty">
+                <i class="fas fa-wifi" style="text-decoration:line-through;"></i>
+                <span>Error de conexión.</span>
+            </div>`
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function toggleUserMenu() {
     const isHidden = userMenu.classList.toggle("hidden");
     userMenuBtn.setAttribute("aria-expanded", isHidden ? "false" : "true");
@@ -2038,6 +2280,11 @@ document.addEventListener("click", (event) => {
     if (!userSection.contains(target)) {
         userMenu.classList.add("hidden");
         userMenuBtn.setAttribute("aria-expanded", "false");
+    }
+    // Cierra el panel de notificaciones al hacer clic fuera
+    const notifWrapper = document.getElementById("notifWrapper")
+    if (notifWrapper && !notifWrapper.contains(target)) {
+        closeNotifPanel()
     }
     if (primaryNav && navToggleBtn && !primaryNav.contains(target) && !navToggleBtn.contains(target)) {
         closePrimaryNav()

@@ -50,9 +50,19 @@
 
                 <section class="hero-actions">
                     <section class="Carrito">
-                        <button class="cart-btn" id="cartBtn" aria-label="Mi carrito">
-                            <i class="fas fa-shopping-cart" aria-hidden="true"></i>
-                        </button>
+                        <div class="notif-wrapper" id="notifWrapper">
+                            <button class="cart-btn" id="notifBtn" aria-label="Notificaciones" aria-expanded="false">
+                                <i class="fas fa-bell" aria-hidden="true"></i>
+                                <span class="notif-badge hidden" id="notifBadge"></span>
+                            </button>
+                            <div class="notif-panel hidden" id="notifPanel" role="dialog" aria-label="Notificaciones"></div>
+                        </div>
+                        <div class="notif-wrapper">
+                            <button class="cart-btn" id="cartBtn" aria-label="Mi carrito">
+                                <i class="fas fa-shopping-cart" aria-hidden="true"></i>
+                                <span class="notif-badge hidden" id="cartBadge"></span>
+                            </button>
+                        </div>
                     </section>
 
                     <section class="login" id="loginSection">
