@@ -64,8 +64,32 @@ function showAppToast(message, kind = "info", timeoutMs = 3200) {
 // ── reCAPTCHA v3 ───────────────────────────────────────────────
 const RECAPTCHA_SITE_KEY = "6LcTDaQsAAAAAFqnC9Ib3PAPf1Zfcc-YztBQK7lF"
 
+function waitForRecaptcha(timeoutMs = 3000) {
+    return new Promise((resolve) => {
+        if (typeof grecaptcha !== "undefined" && typeof grecaptcha.ready === "function") {
+            grecaptcha.ready(() => resolve(true))
+            return
+        }
+
+        const startedAt = Date.now()
+        const interval = window.setInterval(() => {
+            const isLoaded = typeof grecaptcha !== "undefined" && typeof grecaptcha.ready === "function"
+            if (isLoaded) {
+                window.clearInterval(interval)
+                grecaptcha.ready(() => resolve(true))
+                return
+            }
+            if (Date.now() - startedAt >= timeoutMs) {
+                window.clearInterval(interval)
+                resolve(false)
+            }
+        }, 80)
+    })
+}
+
 async function getRecaptchaToken(action) {
-    if (typeof grecaptcha === "undefined") {
+    const isReady = await waitForRecaptcha()
+    if (!isReady || typeof grecaptcha === "undefined") {
         console.warn("grecaptcha no cargado — omitiendo token")
         return null
     }
@@ -164,11 +188,15 @@ loginForm.addEventListener("submit", async (e) => {
     
     const email = document.getElementById("loginEmail").value;
     const password = document.getElementById("loginPassword").value;
-    
+
     try {
         const recaptchaToken = await getRecaptchaToken("login")
+        if (!recaptchaToken) {
+            showAppToast("No fue posible validar reCAPTCHA. Recarga la página e intenta nuevamente.", "error")
+            return
+        }
         const headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        if (recaptchaToken) headers["x-recaptcha-token"] = recaptchaToken
+        headers["x-recaptcha-token"] = recaptchaToken
 
         const response = await fetch(`${API_CONFIG.API_URL}/login`, {
             method: "POST",
@@ -211,8 +239,12 @@ registerForm.addEventListener("submit", async (e) => {
 
     try {
         const recaptchaToken = await getRecaptchaToken("register")
+        if (!recaptchaToken) {
+            showAppToast("No fue posible validar reCAPTCHA. Recarga la página e intenta nuevamente.", "error")
+            return
+        }
         const headers = {"Content-Type": "application/json"}
-        if (recaptchaToken) headers["x-recaptcha-token"] = recaptchaToken
+        headers["x-recaptcha-token"] = recaptchaToken
 
         const response = await fetch(`${API_CONFIG.API_URL}/register`, {
             method: "POST",
@@ -249,8 +281,12 @@ recoveryForm.addEventListener("submit", async (e) => {
     
     try {
         const recaptchaToken = await getRecaptchaToken("forgot_password")
+        if (!recaptchaToken) {
+            showAppToast("No fue posible validar reCAPTCHA. Recarga la página e intenta nuevamente.", "error")
+            return
+        }
         const headers = {"Content-Type": "application/json"}
-        if (recaptchaToken) headers["x-recaptcha-token"] = recaptchaToken
+        headers["x-recaptcha-token"] = recaptchaToken
 
         const response = await fetch(`${API_CONFIG.API_URL}/forgot-password`, {
             method: "POST",
