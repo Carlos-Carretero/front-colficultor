@@ -350,6 +350,77 @@ function setCatalogStatus(message, kind = "info") {
 // Caché de productos del catálogo cargados actualmente (id → objeto completo)
 const catalogItemsCache = new Map()
 
+// ── Utilidades de búsqueda fuzzy ──────────────────────────────────────────────
+
+/** Elimina tildes/diacríticos y convierte a minúsculas. */
+function normalizeStr(s) {
+    return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+}
+
+/** Distancia de Levenshtein entre dos strings cortos. */
+function levenshtein(a, b) {
+    if (a === b) return 0
+    if (!a.length) return b.length
+    if (!b.length) return a.length
+    const prev = Array.from({ length: b.length + 1 }, (_, j) => j)
+    for (let i = 1; i <= a.length; i++) {
+        const curr = [i]
+        for (let j = 1; j <= b.length; j++) {
+            curr[j] = a[i - 1] === b[j - 1]
+                ? prev[j - 1]
+                : 1 + Math.min(prev[j], curr[j - 1], prev[j - 1])
+        }
+        prev.splice(0, prev.length, ...curr)
+    }
+    return prev[b.length]
+}
+
+/**
+ * Calcula un puntaje de similitud [0, 1] entre la query y un producto.
+ * Considera nombre, región y descripción. Maneja tildes y errores ortográficos leves.
+ */
+function fuzzyScore(query, product) {
+    const q = normalizeStr(query)
+    if (!q) return 1
+
+    const name    = normalizeStr(product.nombre)
+    const region  = normalizeStr(product.region)
+    const desc    = normalizeStr(product.descripcion)
+    const full    = `${name} ${region} ${desc}`
+
+    // Coincidencia exacta de substring → puntaje máximo
+    if (name.includes(q))  return 1.0
+    if (full.includes(q))  return 0.9
+
+    // Puntuación token a token (maneja consultas multi-palabra)
+    const tokens = q.split(/\s+/).filter(Boolean)
+    let total = 0
+
+    for (const token of tokens) {
+        if (token.length < 2) { total += 0.5; continue }
+
+        if (full.includes(token)) { total += 1.0; continue }
+
+        // Buscar la palabra del nombre más parecida al token (ventana deslizante)
+        const words = full.split(/\s+/).filter(w => w.length > 0)
+        let best = 0
+        for (const word of words) {
+            // Comparar contra ventanas del tamaño del token ± 2
+            for (let start = 0; start <= Math.max(0, word.length - token.length + 2); start++) {
+                const window = word.slice(start, start + token.length + 2)
+                const dist = levenshtein(token, window)
+                const sim = Math.max(0, 1 - dist / Math.max(token.length, window.length))
+                if (sim > best) best = sim
+            }
+        }
+        total += best
+    }
+
+    return tokens.length > 0 ? total / tokens.length : 0
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function getCatalogFilters() {
     return {
         q: document.getElementById("filterQ")?.value?.trim() || "",
@@ -506,6 +577,12 @@ async function loadCatalog({ resetPage = false } = {}) {
             setCatalogStatus("No se encontraron productos con los filtros seleccionados.")
             updateCatalogPagination()
             return
+        }
+
+        // Re-ordenar por relevancia fuzzy cuando hay búsqueda de texto
+        if (filters.q && items.length > 1) {
+            const scores = new Map(items.map(p => [p._id, fuzzyScore(filters.q, p)]))
+            items.sort((a, b) => (scores.get(b._id) ?? 0) - (scores.get(a._id) ?? 0))
         }
 
         renderCatalogItems(items)
