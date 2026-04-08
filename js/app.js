@@ -621,6 +621,7 @@ function buildMenuItems(role) {
             { label: "Mis productos", action: openMyProducts },
             { label: "Mis ventas", action: openMySales },
             { label: "Estadísticas", action: openMyStats },
+            { label: "Soporte / PQR", action: openMyPQR },
             ...common,
         ];
     }
@@ -3529,10 +3530,15 @@ async function openAdminPQR() {
                     <p class="pqr-respuesta-label" style="margin-bottom:8px;"><i class="fas fa-comments"></i> Conversación</p>
                     <div style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;">
                         ${timeline.length ? timeline.map(m => {
-                            const isAdmin = String(m.autorRole || "").toUpperCase() === "ADMIN"
+                            const roleUpper = String(m.autorRole || "").toUpperCase()
+                            const isAdmin = roleUpper === "ADMIN"
+                            const autorLabel = isAdmin ? "Admin"
+                                : roleUpper === "CAFICULTOR" ? "Caficultor"
+                                : roleUpper === "COMPRADOR"  ? "Comprador"
+                                : "Usuario"
                             return `
                             <div style="align-self:${isAdmin ? "flex-end" : "flex-start"};max-width:90%;background:${isAdmin ? "#fff4e1" : "#f4f7fb"};border:1px solid ${isAdmin ? "#f3d7ac" : "#dce7f7"};border-radius:10px;padding:8px 10px;">
-                                <div style="font-size:11px;color:#777;margin-bottom:3px;">${isAdmin ? "Admin" : "Usuario"} · ${new Date(m.createdAt).toLocaleString("es-CO")}</div>
+                                <div style="font-size:11px;color:#777;margin-bottom:3px;">${autorLabel} · ${new Date(m.createdAt).toLocaleString("es-CO")}</div>
                                 <div style="font-size:13px;color:#333;white-space:pre-wrap;">${m.mensaje}</div>
                             </div>`
                         }).join("") : `<p style="font-size:12px;color:#777;">Sin mensajes todavía.</p>`}
