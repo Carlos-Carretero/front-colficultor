@@ -3990,6 +3990,12 @@ async function openAdminProducts() {
 
     let allProducts = []
 
+    function resolveProductId(product) {
+        const raw = product?._id ?? product?.id ?? product?.id?.$oid ?? product?._id?.$oid
+        if (raw === null || raw === undefined) return ""
+        return String(raw).trim()
+    }
+
     function renderProducts(products) {
         if (!products.length) {
             listEl.innerHTML = `
@@ -4001,7 +4007,7 @@ async function openAdminProducts() {
         }
 
         listEl.innerHTML = products.map(p => {
-            const productId = p._id || p.id
+            const productId = resolveProductId(p)
             const statusBadge = p.is_active
                 ? '<span class="order-estado-badge" style="color:#0f5c2b;background:#d4f5e2;">Activo</span>'
                 : '<span class="order-estado-badge" style="color:#666;background:#f0f0f0;">Inactivo</span>'
@@ -4019,8 +4025,8 @@ async function openAdminProducts() {
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
                     <span style="font-size:12px;color:#777;">Stock: ${Number(p.stock || 0)} · Caficultor: ${escapeHtml(p.caficultor_id || "")}</span>
                     <button type="button" class="dashboard-action-btn admin-product-delete-btn"
-                            style="padding:8px 12px;font-size:0.85rem;background:#8e2d1c;color:#fff;" ${!p.is_active ? "disabled" : ""}>
-                        Eliminar producto
+                            style="padding:8px 12px;font-size:0.85rem;background:#8e2d1c;color:#fff;" ${!productId ? "disabled" : ""}>
+                        Eliminar definitivamente
                     </button>
                 </div>
                 <div class="buyer-cart-status hidden admin-product-feedback"></div>
@@ -4040,22 +4046,29 @@ async function openAdminProducts() {
             }
 
             deleteBtn?.addEventListener("click", async () => {
-                const ok = confirm("¿Deseas eliminar este producto del catálogo?")
+                const ok = confirm("¿Deseas eliminar definitivamente este producto? Esta acción no se puede deshacer.")
                 if (!ok) return
                 deleteBtn.disabled = true
-                setFeedback("Eliminando producto...")
+                setFeedback("Eliminando producto definitivamente...")
                 try {
-                    const res = await authFetch(`/api/productos/${productId}`, { method: "DELETE" })
+                    if (!productId) {
+                        setFeedback("ID de producto inválido. Recarga la lista e inténtalo de nuevo.", "error")
+                        deleteBtn.disabled = false
+                        return
+                    }
+                    const encodedProductId = encodeURIComponent(productId)
+                    const res = await authFetch(`/api/productos/${encodedProductId}`, { method: "DELETE" })
                     if (!res.ok && res.status !== 204) {
                         const err = await res.json().catch(() => ({}))
                         setFeedback(err.detail || "No fue posible eliminar el producto.", "error")
                         deleteBtn.disabled = false
                         return
                     }
-                    setFeedback("Producto eliminado correctamente.", "success")
+                    setFeedback("Producto eliminado definitivamente.", "success")
                     await loadProducts()
-                } catch {
-                    setFeedback("Error de conexión al eliminar producto.", "error")
+                } catch (error) {
+                    const message = error?.message ? `Error de conexión: ${error.message}` : "Error de conexión al eliminar producto."
+                    setFeedback(message, "error")
                     deleteBtn.disabled = false
                 }
             })
