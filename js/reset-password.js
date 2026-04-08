@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({
                     token: token,
                     newPassword: newPassword,
-                    confirmPassword: newPassword,
+                    confirmPassword: confirmPassword,
                 }),
             });
 
